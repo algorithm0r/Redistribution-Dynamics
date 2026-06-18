@@ -141,6 +141,17 @@ split equally; τ=0 = none, τ=1 = pool — available later if a sweep is wanted
 Metrics: stock Gini, avg/max/min stock, cumulative hunger, stock distribution.
 Everything below is the broader map this stage is a first slice of.
 
+**Evolution toggle (first Mode-2 cut).** `evolveTraits` makes `pNoGather` /
+`pNoConsume` per-agent **heritable traits** (seeded from the globals, so Mode 1 is
+unchanged). When on, a starving agent (needs to consume, empty stock) dies and is
+replaced in place by a mutated offspring of a random survivor — Gaussian
+mutation (σ = `mutationStdev`), clamped to [0,1], N held fixed. Selection
+gradient: ↓`pNoGather`, ↑`pNoConsume`; the global optimum (0, 1) is a perfect
+gatherer that never needs to eat — a degenerate attractor that argues for a
+future trade-off cost on the boon. **The regime gates selection strength:** under
+`none` many starve (strong selection), under `pool` ~none starve (selection
+inert). Metrics add avg traits + cumulative deaths. (`epoch` is now a UI control.)
+
 **Exchange as a dimension space.** A regime is not an item on a list but a
 setting of a few axes describing *how a unit of surplus moves from a holder to
 someone in need*. The originally-dictated five are spanning examples; varying

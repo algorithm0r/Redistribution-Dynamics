@@ -14,15 +14,35 @@ class Population {
         this.dataManager = new DataManager(this);
         this.observer = new Observer(this, this.dataManager);
         this.tick = 0;
+        this.deaths = 0;   // cumulative starvation deaths (evolution mode)
     }
 
     update() {
         this.agents.forEach(agent => agent.gather());
         this.redistribute();
         this.agents.forEach(agent => agent.consume());
+        if (PARAMETERS.evolveTraits) this.replaceStarved();
 
         this.tick++;
         if (this.dataManager.update()) loadNextRunParameters();
+    }
+
+    /**
+     * Evolution: every agent that starved this tick dies and is replaced in place
+     * by a mutated offspring of a random survivor (keeping N fixed). If everyone
+     * starved at once there is no survivor to reproduce from, so replacement is
+     * skipped that tick.
+     */
+    replaceStarved() {
+        const survivors = this.agents.filter(a => !a.starved);
+        if (survivors.length === 0) return;
+        for (let i = 0; i < this.agents.length; i++) {
+            if (this.agents[i].starved) {
+                const parent = survivors[randomInt(survivors.length)];
+                this.agents[i] = parent.spawnChild();
+                this.deaths++;
+            }
+        }
     }
 
     /** Apply the selected automatic redistribution rule for this tick. */

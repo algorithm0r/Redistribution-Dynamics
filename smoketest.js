@@ -28,10 +28,16 @@ function createCtx() {
 }
 
 const EPOCH = 2000;
-for (const regime of ['none', 'share', 'theft', 'pool']) {
+const scenarios = [
+    { regime: 'none' }, { regime: 'share' }, { regime: 'theft' }, { regime: 'pool' },
+    { regime: 'none', evolveTraits: true, label: 'none+evo' },
+    { regime: 'pool', evolveTraits: true, label: 'pool+evo' },
+];
+for (const scenario of scenarios) {
+    const regime = scenario.regime;
     const ctx = createCtx();
     const P = ctx.PARAMETERS;
-    Object.assign(P, { regime, epoch: EPOCH, idCounter: 0 });
+    Object.assign(P, { epoch: EPOCH, idCounter: 0 }, scenario);
 
     let captured = null;
     ctx.socket.emit = (event, packet) => { if (event === 'insert') captured = packet; };
@@ -42,14 +48,16 @@ for (const regime of ['none', 'share', 'theft', 'pool']) {
     while (!done) pop.update();
 
     const d = captured.data;
-    const lastGini = d.gini[d.gini.length - 1];
-    const lastHunger = d.hunger[d.hunger.length - 1];
-    const lastAvg = d.avgStock[d.avgStock.length - 1];
-    const lastMax = d.maxStock[d.maxStock.length - 1];
-    const totalStock = pop.agents.reduce((s, a) => s + a.stock, 0);
-    console.log(
-        `regime=${regime.padEnd(5)} | finalGini=${lastGini.toFixed(3)} | ` +
-        `avgStock=${lastAvg.toFixed(1)} | maxStock=${String(lastMax).padStart(4)} | ` +
-        `cumHunger=${String(lastHunger).padStart(6)} | totalStock=${totalStock}`
-    );
+    const lastOf = a => a[a.length - 1];
+    const label = scenario.label || regime;
+    let line =
+        `${label.padEnd(9)} | finalGini=${lastOf(d.gini).toFixed(3)} | ` +
+        `avgStock=${lastOf(d.avgStock).toFixed(1).padStart(5)} | ` +
+        `cumHunger=${String(lastOf(d.hunger)).padStart(6)}`;
+    if (scenario.evolveTraits) {
+        line += ` | deaths=${String(lastOf(d.deaths)).padStart(6)}` +
+                ` | pNoGather=${lastOf(d.avgPNoGather).toFixed(3)}` +
+                ` | pNoConsume=${lastOf(d.avgPNoConsume).toFixed(3)}`;
+    }
+    console.log(line);
 }

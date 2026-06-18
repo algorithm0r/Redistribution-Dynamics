@@ -24,6 +24,10 @@ class DataManager {
         this.hungerTimeSeries = [];       // cumulative hunger events across agents
         this.stockDistribution = [];      // per-period histogram of stock buckets
 
+        this.avgPNoGatherTimeSeries = []; // mean evolving traits (evolution mode)
+        this.avgPNoConsumeTimeSeries = [];
+        this.deathsTimeSeries = [];       // cumulative starvation deaths
+
         this.gini = 0;
     }
 
@@ -48,6 +52,10 @@ class DataManager {
         this.maxStockTimeSeries.push(stocks.reduce((m, s) => Math.max(m, s), 0));
         this.minStockTimeSeries.push(stocks.reduce((m, s) => Math.min(m, s), Infinity));
         this.hungerTimeSeries.push(this.agents.reduce((sum, a) => sum + a.hungerCount, 0));
+
+        this.avgPNoGatherTimeSeries.push(n > 0 ? this.agents.reduce((s, a) => s + a.pNoGather, 0) / n : 0);
+        this.avgPNoConsumeTimeSeries.push(n > 0 ? this.agents.reduce((s, a) => s + a.pNoConsume, 0) / n : 0);
+        this.deathsTimeSeries.push(this.population.deaths);
 
         // 20-bucket histogram, bucket width relative to the starting stock.
         const counts = new Array(20).fill(0);
@@ -88,6 +96,9 @@ class DataManager {
                 minStock: this.minStockTimeSeries,
                 hunger: this.hungerTimeSeries,
                 stockDistribution: this.stockDistribution,
+                avgPNoGather: this.avgPNoGatherTimeSeries,
+                avgPNoConsume: this.avgPNoConsumeTimeSeries,
+                deaths: this.deathsTimeSeries,
             },
         };
         if (typeof socket !== "undefined" && socket) {

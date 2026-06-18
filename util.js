@@ -20,6 +20,9 @@ const generateNormalSample = (mean = 0, stdDev = 1) => {
     return z0 * stdDev + mean;
 };
 
+/** Clamp a number into [0, 1]. */
+const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
+
 /** @returns String usable as an rgb web color */
 const rgb = (r, g, b) => `rgb(${r}, ${g}, ${b})`;
 

@@ -4,6 +4,17 @@ Newest entries at the top.
 
 ## 2026-06-17
 
+- **Added trait evolution (first Mode-2 cut) + epoch control.** `pNoGather` /
+  `pNoConsume` are now per-agent heritable traits seeded from the globals. New
+  toggle `evolveTraits`: a starving agent dies and is replaced in place by a
+  mutated offspring (Gaussian σ = `mutationStdev`, clamped) of a random survivor,
+  N fixed. DataManager tracks avg traits + cumulative deaths; Observer adds a
+  traits graph + readout. Added `evolveTraits` / `mutationStdev` / `epoch` UI
+  controls and two `stage2` evolving runs. Smoke (2000 ticks): none+evo → 117
+  deaths, traits move the right way (pNoGather 0.092↓, pNoConsume 0.106↑);
+  pool+evo → 0 deaths, traits frozen (no starvation = no selection). The regime
+  gates selection strength. Degenerate optimum (0,1) noted as a hook for a future
+  trade-off cost on the boon.
 - **Renamed project to "Redistribution Dynamics"** (from "Employment Simulator")
   across README, DEVPLAN/DEVLOG headers, page title, and the data DB name
   (`redistribution_dynamics`). Folder name left unchanged to avoid disrupting the

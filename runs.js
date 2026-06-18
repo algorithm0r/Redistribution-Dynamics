@@ -10,6 +10,10 @@ const runs = [
     { runName: "share", regime: "share", collection: "stage1" },
     { runName: "theft", regime: "theft", collection: "stage1" },
     { runName: "pool",  regime: "pool",  collection: "stage1" },
+
+    // Evolution (Mode 2 seed): same regimes with trait evolution on.
+    { runName: "none-evolve", regime: "none", evolveTraits: true, collection: "stage2" },
+    { runName: "pool-evolve", regime: "pool", evolveTraits: true, collection: "stage2" },
 ];
 
 if (typeof module !== "undefined" && module.exports) module.exports = { runs };
