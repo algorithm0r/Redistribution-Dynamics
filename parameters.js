@@ -33,7 +33,7 @@ const PARAMETERS = {
     reportingPeriod: 10,      // record statistics every N ticks
     epoch: 10000,             // ticks per run before data is sent and the run ends
 
-    db: "employment_simulator",
+    db: "redistribution_dynamics",
     collection: "stage1",
     ip: "https://73.19.38.112:8888",   // shared socket.io -> MongoDB server (../Server)
 };

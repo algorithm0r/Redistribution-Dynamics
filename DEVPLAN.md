@@ -1,4 +1,4 @@
-# DEVPLAN — Employment Simulator
+# DEVPLAN — Redistribution Dynamics
 
 Living design document. We add models and mechanics here as we work them out.
 Nothing below is frozen; expect revision.

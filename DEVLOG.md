@@ -1,9 +1,14 @@
-# DEVLOG — Employment Simulator
+# DEVLOG — Redistribution Dynamics
 
 Newest entries at the top.
 
 ## 2026-06-17
 
+- **Renamed project to "Redistribution Dynamics"** (from "Employment Simulator")
+  across README, DEVPLAN/DEVLOG headers, page title, and the data DB name
+  (`redistribution_dynamics`). Folder name left unchanged to avoid disrupting the
+  active session path. Created a private GitHub repo and pushed:
+  https://github.com/algorithm0r/Redistribution-Dynamics
 - **Added the `theft` regime.** Coercive variant of `share`: hungry seize 1 from
   a *random* surplus-holder (not the richest), and with prob `conflictChance`
   (default 0.25) the resource is destroyed. New param `conflictChance` + UI +
