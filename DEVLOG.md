@@ -2,6 +2,16 @@
 
 Newest entries at the top.
 
+## 2026-06-18
+
+- **Added `coupleTraits` toggle.** Ties `pNoGather` and `pNoConsume` into one
+  gene held equal, so the boon/bane can't diverge. Per-tick drift is then 0 by
+  construction (removes the uncoupled (0,1) immortal-hoarder attractor); the gene
+  tunes activity/variance instead. Seeded from the average of the two globals;
+  mutation/inheritance keep them equal. Added UI checkbox, a coupled run, and a
+  smoke scenario. Smoke (2000 ticks): uncoupled none+evo diverges (0.080/0.109);
+  coupled stays locked (0.100/0.100) with lower avg stock (no runaway).
+
 ## 2026-06-17
 
 - **Added random death chance to evolution.** New `deathChance` (per-tick,

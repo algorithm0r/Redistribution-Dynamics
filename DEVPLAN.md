@@ -148,9 +148,12 @@ replaced in place by a mutated offspring of a random survivor — Gaussian
 mutation (σ = `mutationStdev`), clamped to [0,1], N held fixed. A per-tick random
 death (`deathChance`, trait-independent) adds background turnover so the well-fed
 also die — this is drift, not directional selection by itself. Selection
-gradient: ↓`pNoGather`, ↑`pNoConsume`; the global optimum (0, 1) is a perfect
-gatherer that never needs to eat — a degenerate attractor that argues for a
-future trade-off cost on the boon. **The regime gates selection strength:** under
+gradient (uncoupled): ↓`pNoGather`, ↑`pNoConsume`; the global optimum (0, 1) is a
+perfect gatherer that never needs to eat — a degenerate attractor. `coupleTraits`
+removes that attractor: the boon and bane become one gene held equal
+(`pNoGather == pNoConsume`), so per-tick drift is 0 by construction and the
+traits cannot diverge — the gene then tunes activity/variance, not a systematic
+advantage. (A future trade-off cost on the boon is the other way to add tension.) **The regime gates selection strength:** under
 `none` many starve (strong selection), under `pool` ~none starve (selection
 inert). Metrics add avg traits + cumulative deaths. (`epoch` is now a UI control.)
 

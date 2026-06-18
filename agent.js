@@ -18,6 +18,12 @@ class Agent {
         // Heritable traits (seeded from the global defaults).
         this.pNoGather = PARAMETERS.pNoGather;     // bane: chance to fail gathering
         this.pNoConsume = PARAMETERS.pNoConsume;   // boon: chance to skip consuming
+
+        // When coupled, the two traits are one gene held equal (so the boon and
+        // bane can't diverge); seed both from their average. Net drift is then 0.
+        if (PARAMETERS.evolveTraits && PARAMETERS.coupleTraits) {
+            this.pNoGather = this.pNoConsume = (this.pNoGather + this.pNoConsume) / 2;
+        }
     }
 
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
@@ -41,8 +47,13 @@ class Agent {
     spawnChild() {
         const child = new Agent();
         const mutate = () => generateNormalSample(0, PARAMETERS.mutationStdev);
-        child.pNoGather = clamp01(this.pNoGather + mutate());
-        child.pNoConsume = clamp01(this.pNoConsume + mutate());
+        if (PARAMETERS.coupleTraits) {
+            // One gene, held equal (this.pNoGather === this.pNoConsume here).
+            child.pNoGather = child.pNoConsume = clamp01(this.pNoGather + mutate());
+        } else {
+            child.pNoGather = clamp01(this.pNoGather + mutate());
+            child.pNoConsume = clamp01(this.pNoConsume + mutate());
+        }
         return child;
     }
 

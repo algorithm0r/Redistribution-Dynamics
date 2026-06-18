@@ -32,6 +32,7 @@ const scenarios = [
     { regime: 'none' }, { regime: 'share' }, { regime: 'theft' }, { regime: 'pool' },
     { regime: 'none', evolveTraits: true, label: 'none+evo' },
     { regime: 'pool', evolveTraits: true, label: 'pool+evo' },
+    { regime: 'none', evolveTraits: true, coupleTraits: true, label: 'none+evo+cpl' },
 ];
 for (const scenario of scenarios) {
     const regime = scenario.regime;

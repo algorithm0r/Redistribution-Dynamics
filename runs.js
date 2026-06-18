@@ -14,6 +14,7 @@ const runs = [
     // Evolution (Mode 2 seed): same regimes with trait evolution on.
     { runName: "none-evolve", regime: "none", evolveTraits: true, collection: "stage2" },
     { runName: "pool-evolve", regime: "pool", evolveTraits: true, collection: "stage2" },
+    { runName: "none-evolve-coupled", regime: "none", evolveTraits: true, coupleTraits: true, collection: "stage2" },
 ];
 
 if (typeof module !== "undefined" && module.exports) module.exports = { runs };
