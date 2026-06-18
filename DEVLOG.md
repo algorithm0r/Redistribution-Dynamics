@@ -4,6 +4,13 @@ Newest entries at the top.
 
 ## 2026-06-17
 
+- **Added random death chance to evolution.** New `deathChance` (per-tick,
+  trait-independent) folded into the replacement pass alongside starvation:
+  `replaceStarved` → `replaceDead`. Gives background generational turnover so the
+  well-fed also die (curbs the immortal-hoarder attractor). Smoke (2000 ticks,
+  0.001): none+evo deaths 117→316 with traits still moving directionally;
+  pool+evo 0→213 deaths but traits stay neutral — random death is drift, not
+  selection. Added `deathChance` UI control.
 - **Added trait evolution (first Mode-2 cut) + epoch control.** `pNoGather` /
   `pNoConsume` are now per-agent heritable traits seeded from the globals. New
   toggle `evolveTraits`: a starving agent dies and is replaced in place by a

@@ -145,7 +145,9 @@ Everything below is the broader map this stage is a first slice of.
 `pNoConsume` per-agent **heritable traits** (seeded from the globals, so Mode 1 is
 unchanged). When on, a starving agent (needs to consume, empty stock) dies and is
 replaced in place by a mutated offspring of a random survivor — Gaussian
-mutation (σ = `mutationStdev`), clamped to [0,1], N held fixed. Selection
+mutation (σ = `mutationStdev`), clamped to [0,1], N held fixed. A per-tick random
+death (`deathChance`, trait-independent) adds background turnover so the well-fed
+also die — this is drift, not directional selection by itself. Selection
 gradient: ↓`pNoGather`, ↑`pNoConsume`; the global optimum (0, 1) is a perfect
 gatherer that never needs to eat — a degenerate attractor that argues for a
 future trade-off cost on the boon. **The regime gates selection strength:** under

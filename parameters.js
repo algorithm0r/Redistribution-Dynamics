@@ -30,6 +30,7 @@ const PARAMETERS = {
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.
     evolveTraits: false,
     mutationStdev: 0.02,      // std dev of the Gaussian trait mutation
+    deathChance: 0.001,       // per-tick random (trait-independent) death chance
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
@@ -53,6 +54,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.conflictChance = parseFloat(document.getElementById("conflictChance").value);
     PARAMETERS.evolveTraits  = document.getElementById("evolveTraits").checked;
     PARAMETERS.mutationStdev = parseFloat(document.getElementById("mutationStdev").value);
+    PARAMETERS.deathChance   = parseFloat(document.getElementById("deathChance").value);
     PARAMETERS.epoch         = parseInt(document.getElementById("epoch").value);
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
@@ -69,6 +71,7 @@ const saveParametersToUI = () => {
     document.getElementById("conflictChance").value = PARAMETERS.conflictChance;
     document.getElementById("evolveTraits").checked = PARAMETERS.evolveTraits;
     document.getElementById("mutationStdev").value = PARAMETERS.mutationStdev;
+    document.getElementById("deathChance").value   = PARAMETERS.deathChance;
     document.getElementById("epoch").value         = PARAMETERS.epoch;
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;

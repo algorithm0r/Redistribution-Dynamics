@@ -21,23 +21,29 @@ class Population {
         this.agents.forEach(agent => agent.gather());
         this.redistribute();
         this.agents.forEach(agent => agent.consume());
-        if (PARAMETERS.evolveTraits) this.replaceStarved();
+        if (PARAMETERS.evolveTraits) this.replaceDead();
 
         this.tick++;
         if (this.dataManager.update()) loadNextRunParameters();
     }
 
     /**
-     * Evolution: every agent that starved this tick dies and is replaced in place
-     * by a mutated offspring of a random survivor (keeping N fixed). If everyone
-     * starved at once there is no survivor to reproduce from, so replacement is
-     * skipped that tick.
+     * Evolution: an agent dies this tick if it starved (trait-dependent
+     * selection) or by a random per-tick chance (trait-independent mortality, so
+     * the well-fed still turn over). Each dead agent is replaced in place by a
+     * mutated offspring of a random survivor (keeping N fixed). If everyone dies
+     * at once there is no survivor to reproduce from, so replacement is skipped.
      */
-    replaceStarved() {
-        const survivors = this.agents.filter(a => !a.starved);
+    replaceDead() {
+        const deathChance = PARAMETERS.deathChance;
+        const dying = this.agents.map(a =>
+            a.starved || (deathChance > 0 && Math.random() < deathChance));
+
+        const survivors = this.agents.filter((a, i) => !dying[i]);
         if (survivors.length === 0) return;
+
         for (let i = 0; i < this.agents.length; i++) {
-            if (this.agents[i].starved) {
+            if (dying[i]) {
                 const parent = survivors[randomInt(survivors.length)];
                 this.agents[i] = parent.spawnChild();
                 this.deaths++;
