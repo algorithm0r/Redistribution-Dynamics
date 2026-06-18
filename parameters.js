@@ -4,15 +4,24 @@
  * reproducible from its stored parameters.
  *
  * Sections:
- *   - Domain: the model being simulated (Model 1 — to be dictated; see DEVPLAN.md)
- *   - Framework / data: loop, reporting, and database wiring (stable machinery)
+ *   - Domain: Model 1, Stage 1 — gather/consume with three automatic regimes.
+ *   - Framework / data: loop, reporting, and database wiring (stable machinery).
  */
 const PARAMETERS = {
     runName: "Run From Controls",
 
-    // ── Domain (Model 1 — see DEVPLAN.md) ──────────────────────────────────
+    // ── Domain (Model 1, Stage 1 — see DEVPLAN.md) ─────────────────────────
     initialAgents: 100,
-    // Additional domain parameters will be dictated with Model 1.
+    initialStock: 10,         // starting resource stock per agent
+
+    pNoGather: 0.1,           // chance to fail gathering this tick  (bane)
+    pNoConsume: 0.1,          // chance to skip consumption this tick (boon)
+
+    // Redistribution rule, applied every tick between gather and consume:
+    //   'none'  — no transfers
+    //   'share' — hungry agents pull 1 from the richest agent with surplus
+    //   'pool'  — all stock pooled and split equally
+    regime: "none",
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
@@ -22,14 +31,17 @@ const PARAMETERS = {
     epoch: 10000,             // ticks per run before data is sent and the run ends
 
     db: "employment_simulator",
-    collection: "test",
+    collection: "stage1",
     ip: "https://73.19.38.112:8888",   // shared socket.io -> MongoDB server (../Server)
 };
 
 /** Pull parameters from the control-panel inputs into PARAMETERS. */
 const loadParametersFromUI = () => {
     PARAMETERS.initialAgents = parseInt(document.getElementById("numAgents").value);
-    // Domain inputs added alongside Model 1.
+    PARAMETERS.initialStock  = parseInt(document.getElementById("initialStock").value);
+    PARAMETERS.pNoGather     = parseFloat(document.getElementById("pNoGather").value);
+    PARAMETERS.pNoConsume    = parseFloat(document.getElementById("pNoConsume").value);
+    PARAMETERS.regime        = document.getElementById("regime").value;
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
@@ -37,8 +49,11 @@ const loadParametersFromUI = () => {
 
 /** Push PARAMETERS back into the control-panel inputs (e.g. when loading a run). */
 const saveParametersToUI = () => {
-    document.getElementById("numAgents").value = PARAMETERS.initialAgents;
-    // Domain inputs added alongside Model 1.
+    document.getElementById("numAgents").value    = PARAMETERS.initialAgents;
+    document.getElementById("initialStock").value = PARAMETERS.initialStock;
+    document.getElementById("pNoGather").value    = PARAMETERS.pNoGather;
+    document.getElementById("pNoConsume").value   = PARAMETERS.pNoConsume;
+    document.getElementById("regime").value       = PARAMETERS.regime;
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
 };

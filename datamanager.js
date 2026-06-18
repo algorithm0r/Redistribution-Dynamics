@@ -3,12 +3,11 @@
  *
  * Contract with Population:
  *   - update() is called once per tick. It samples every reportingPeriod ticks.
- *   - It returns true exactly once, when the run is complete (epoch reached or a
- *     model-defined termination), after sending the data packet. Population uses
- *     that signal to advance to the next run.
+ *   - It returns true exactly once, when the run is complete (epoch reached),
+ *     after sending the data packet. Population uses that signal to advance runs.
  *
- * The framework plumbing (sampling cadence, termination, packet send) is fixed;
- * Model 1 fills in record()'s time-series and lists them in sendDataToServer().
+ * Stage 1 metrics: stock inequality (Gini), avg/max stock, cumulative hunger,
+ * and a stock distribution snapshot.
  */
 class DataManager {
     constructor(population) {
@@ -18,13 +17,46 @@ class DataManager {
         this.tick = 0;
         this.reportingPeriod = PARAMETERS.reportingPeriod;
 
-        // Model 1: declare time-series arrays here, e.g.
-        //   this.populationTimeSeries = [];
+        this.giniTimeSeries = [];
+        this.avgStockTimeSeries = [];
+        this.maxStockTimeSeries = [];
+        this.minStockTimeSeries = [];
+        this.hungerTimeSeries = [];       // cumulative hunger events across agents
+        this.stockDistribution = [];      // per-period histogram of stock buckets
+
+        this.gini = 0;
     }
 
-    /** Sample statistics for the current reporting period. Filled by Model 1. */
+    calculateGini(values) {
+        const n = values.length;
+        if (n === 0) return 0;
+        const sorted = [...values].sort((a, b) => a - b);
+        const total = sorted.reduce((sum, v) => sum + v, 0);
+        if (total === 0) return 0;
+        const numerator = 2 * sorted.reduce((sum, v, i) => sum + (i + 1) * v, 0) - (n + 1) * total;
+        return numerator / (n * total);
+    }
+
     record() {
-        // Model 1: push this period's statistics into the time-series arrays.
+        const stocks = this.agents.map(a => a.stock);
+        const n = stocks.length;
+        const total = stocks.reduce((sum, s) => sum + s, 0);
+
+        this.gini = this.calculateGini(stocks);
+        this.giniTimeSeries.push(this.gini);
+        this.avgStockTimeSeries.push(n > 0 ? total / n : 0);
+        this.maxStockTimeSeries.push(stocks.reduce((m, s) => Math.max(m, s), 0));
+        this.minStockTimeSeries.push(stocks.reduce((m, s) => Math.min(m, s), Infinity));
+        this.hungerTimeSeries.push(this.agents.reduce((sum, a) => sum + a.hungerCount, 0));
+
+        // 20-bucket histogram, bucket width relative to the starting stock.
+        const counts = new Array(20).fill(0);
+        const bucketSize = Math.max(1, PARAMETERS.initialStock / 5);
+        stocks.forEach(s => {
+            const index = Math.min(19, Math.floor(s / bucketSize));
+            counts[index]++;
+        });
+        this.stockDistribution.push(counts);
     }
 
     /** @returns true when the run is finished (caller should advance runs). */
@@ -39,7 +71,6 @@ class DataManager {
         return false;
     }
 
-    /** Termination test. Default: fixed epoch. Model 1 may add absorbing states. */
     runComplete() {
         return this.tick >= PARAMETERS.epoch;
     }
@@ -51,8 +82,12 @@ class DataManager {
             data: {
                 run: PARAMETERS.runName,
                 parameters: Object.assign({}, PARAMETERS),
-                // Model 1: include recorded time-series here, e.g.
-                //   population: this.populationTimeSeries,
+                gini: this.giniTimeSeries,
+                avgStock: this.avgStockTimeSeries,
+                maxStock: this.maxStockTimeSeries,
+                minStock: this.minStockTimeSeries,
+                hunger: this.hungerTimeSeries,
+                stockDistribution: this.stockDistribution,
             },
         };
         if (typeof socket !== "undefined" && socket) {

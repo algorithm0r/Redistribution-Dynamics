@@ -3,9 +3,12 @@
  * top of the defaults for one run; cycled through by the "Start Experiment" /
  * "Next Run" buttons in the browser and by runner.js headlessly.
  *
- * Populated once Model 1 defines its parameters. Example shape:
- *   { runName: "baseline", collection: "batch_001", initialAgents: 100 },
+ * Stage 1: the three automatic regimes, all else at PARAMETERS defaults.
  */
-const runs = [];
+const runs = [
+    { runName: "none",  regime: "none",  collection: "stage1" },
+    { runName: "share", regime: "share", collection: "stage1" },
+    { runName: "pool",  regime: "pool",  collection: "stage1" },
+];
 
 if (typeof module !== "undefined" && module.exports) module.exports = { runs };
