@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Employment Simulator</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <script type="text/javascript" src="./assetmanager.js"></script>
+    <script type="text/javascript" src="./timer.js"></script>
+    <script type="text/javascript" src="./gameengine.js"></script>
+    <script type="text/javascript" src="./util.js"></script>
+    <script type="text/javascript" src="./parameters.js"></script>
+    <script type="text/javascript" src="./graph.js"></script>
+    <script type="text/javascript" src="./histogram.js"></script>
+    <script type="text/javascript" src="./datamanager.js"></script>
+    <script type="text/javascript" src="./observer.js"></script>
+    <script type="text/javascript" src="./agent.js"></script>
+    <script type="text/javascript" src="./population.js"></script>
+    <script type="text/javascript" src="./runs.js"></script>
+    <script type="text/javascript" src="./main.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="mainLayout">
+        <canvas id="gameWorld" width="2000" height="1000" style="background: white; border: 1px solid black"
+            tabindex="0" autofocus></canvas>
+        <div id="ui">
+            <div id="db" class="db-status">Database</div><br />
+            <div id="initial">
+                <label for="numAgents">Number of Agents:</label>
+                <input type="number" id="numAgents" value="100" min="1" max="10000"><br>
+            </div>
+            <div id="parameters">
+                <div id="runName">Run From Controls</div>
+                <!-- Domain parameter inputs added with Model 1. -->
+            </div>
+            <div id="controls">
+                <button id="resetButton">Reset</button><br>
+                <button id="runExperimentButton">Start Experiment</button>
+                <button id="nextRunButton">Next Run</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
