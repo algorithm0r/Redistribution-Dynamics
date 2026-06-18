@@ -20,8 +20,11 @@ const PARAMETERS = {
     // Redistribution rule, applied every tick between gather and consume:
     //   'none'  — no transfers
     //   'share' — hungry agents pull 1 from the richest agent with surplus
+    //   'theft' — hungry agents seize 1 from a *random* agent with surplus;
+    //             with prob conflictChance the resource is destroyed instead
     //   'pool'  — all stock pooled and split equally
     regime: "none",
+    conflictChance: 0.25,     // 'theft' only: chance the seized resource is lost
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
@@ -42,6 +45,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.pNoGather     = parseFloat(document.getElementById("pNoGather").value);
     PARAMETERS.pNoConsume    = parseFloat(document.getElementById("pNoConsume").value);
     PARAMETERS.regime        = document.getElementById("regime").value;
+    PARAMETERS.conflictChance = parseFloat(document.getElementById("conflictChance").value);
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
@@ -54,6 +58,7 @@ const saveParametersToUI = () => {
     document.getElementById("pNoGather").value    = PARAMETERS.pNoGather;
     document.getElementById("pNoConsume").value   = PARAMETERS.pNoConsume;
     document.getElementById("regime").value       = PARAMETERS.regime;
+    document.getElementById("conflictChance").value = PARAMETERS.conflictChance;
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
 };

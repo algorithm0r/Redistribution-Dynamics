@@ -4,6 +4,14 @@ Newest entries at the top.
 
 ## 2026-06-17
 
+- **Added the `theft` regime.** Coercive variant of `share`: hungry seize 1 from
+  a *random* surplus-holder (not the richest), and with prob `conflictChance`
+  (default 0.25) the resource is destroyed. New param `conflictChance` + UI +
+  run entry. Smoke (2000 ticks, p=0.1): theft → Gini 0.50 (higher than none's
+  0.40) with hunger 306 — random taking + conflict loss is worse than laissez-
+  faire on both inequality and hunger. Confirmed pool pools *all* accumulated
+  stock (not just the round's gather); tax-on-flow shelved as redundant given
+  1 resource/tick.
 - **Implemented Stage 1 and got a demo up.** Mode 1 with three automatic regimes
   (`none` / `share` / `pool`), intra-tick order gather → redistribute → consume.
   `Agent` holds stock + hunger counter; `Population` runs the regimes;

@@ -129,6 +129,10 @@ the **Control** axis:
   does inequality erupt from luck alone?).
 - `share` — each agent that would be hungry (stock 0 after gathering) takes 1
   from the richest agent with surplus (stock > 1). One-directional, nothing owed.
+- `theft` — coercive variant of `share`: the hungry seize 1 from a *random*
+  surplus-holder, and with prob `conflictChance` the resource is destroyed
+  (victim loses it, taker gets nothing). Isolates giver-random-vs-richest +
+  conflict loss.
 - `pool` — each tick, all stock is summed and redistributed equally (integer
   shares; remainder to random agents to conserve the total). "All eat or starve."
 

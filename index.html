@@ -41,8 +41,12 @@
                 <select id="regime">
                     <option value="none">none — keep your own</option>
                     <option value="share">share — hungry take from richest</option>
+                    <option value="theft">theft — hungry seize from random (may be lost)</option>
                     <option value="pool">pool — split equally each tick</option>
                 </select><br><br>
+
+                <label for="conflictChance">Conflict loss chance (theft only):</label>
+                <input type="number" id="conflictChance" value="0.25" step="0.01" min="0" max="1"><br>
 
                 <label for="pNoGather">Chance to fail gathering (bane):</label>
                 <input type="number" id="pNoGather" value="0.1" step="0.01" min="0" max="1"><br>

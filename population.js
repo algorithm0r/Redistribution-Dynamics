@@ -29,6 +29,7 @@ class Population {
     redistribute() {
         switch (PARAMETERS.regime) {
             case "share": this.shareToNeed(); break;
+            case "theft": this.theft();       break;
             case "pool":  this.equalPool();   break;
             case "none":
             default:      break;
@@ -50,6 +51,24 @@ class Population {
             if (donor === null) break;   // no surplus left anywhere
             donor.stock -= 1;
             n.stock += 1;
+        }
+    }
+
+    /**
+     * Coercive variant of shareToNeed: each agent with no stock seizes 1 from a
+     * *random* surplus-holder (stock > 1) rather than the richest. With
+     * probability conflictChance the resource is destroyed in the taking — the
+     * victim loses it but the taker gets nothing (and stays hungry this tick).
+     */
+    theft() {
+        const needy = this.agents.filter(a => a.stock === 0);
+        for (const n of needy) {
+            const donors = this.agents.filter(a => a.stock > 1);
+            if (donors.length === 0) break;
+            const donor = donors[randomInt(donors.length)];
+            donor.stock -= 1;
+            if (Math.random() >= PARAMETERS.conflictChance) n.stock += 1;
+            // else: resource lost to conflict
         }
     }
 

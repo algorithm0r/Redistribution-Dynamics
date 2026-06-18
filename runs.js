@@ -8,6 +8,7 @@
 const runs = [
     { runName: "none",  regime: "none",  collection: "stage1" },
     { runName: "share", regime: "share", collection: "stage1" },
+    { runName: "theft", regime: "theft", collection: "stage1" },
     { runName: "pool",  regime: "pool",  collection: "stage1" },
 ];
 

@@ -28,7 +28,7 @@ function createCtx() {
 }
 
 const EPOCH = 2000;
-for (const regime of ['none', 'share', 'pool']) {
+for (const regime of ['none', 'share', 'theft', 'pool']) {
     const ctx = createCtx();
     const P = ctx.PARAMETERS;
     Object.assign(P, { regime, epoch: EPOCH, idCounter: 0 });
