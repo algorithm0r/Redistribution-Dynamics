@@ -4,6 +4,16 @@ Newest entries at the top.
 
 ## 2026-06-17
 
+- **Implemented Stage 1 and got a demo up.** Mode 1 with three automatic regimes
+  (`none` / `share` / `pool`), intra-tick order gather → redistribute → consume.
+  `Agent` holds stock + hunger counter; `Population` runs the regimes;
+  `DataManager` tracks Gini / avg-max-min stock / cumulative hunger / stock
+  distribution; `Observer` draws the agent grid and live graphs. Added Stage 1 UI
+  controls, the three `runs.js` entries, and `smoketest.js` (headless, no Mongo).
+  Headless smoke (2000 ticks, p=0.1 each): none → Gini 0.38, hunger 600; share →
+  Gini 0.31, hunger 0; pool → Gini 0.05, hunger 0. Inequality erupts from luck
+  under `none`; `share` ends hunger but not inequality; `pool` flattens both.
+  Committed `6d3dc25`.
 - **Reframed Model 1 regimes as a dimension space.** Chris's point: the five
   dictated regimes are spanning *examples*, not a list; my additions were
   variants along hidden axes. Identified primary axes — Trigger, Return, Control
