@@ -4,6 +4,15 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Finalized the Model V between-group design** (recorded in DEVPLAN). Variable
+  population (removal, not replacement): starvation kills with `starveDeathChance`
+  plus background `deathChance`; pop-0 villages go extinct. Reproduction via
+  **needs-met growth points** (+1 per fed villager/tick → birth below cap, fission
+  at/above cap) — rewards size + equity, ignores hoarding. Fission sends ~half to
+  any neighbor below `fissionMaxFraction·cap` (empty included). Migration = three
+  independent swept vectors (`pMigrateRandom`, `pMigrateMisfit`, `pMigrateStarve`)
+  with destinations that include empty cells (misfits found their own villages).
+  Luck ~1% net positive. Hard cap (no probability blend). Ready to build.
 - **Wrote the Model 2 design + built the within-village genome mechanic.** DEVPLAN
   now has the Model 2 section: 6-gene genome (τ,θ,φ,κ,λ policy + coop behavioral),
   the within-village redistribution pipeline (collect on a progressive bracket →

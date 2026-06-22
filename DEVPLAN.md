@@ -296,20 +296,50 @@ policy genes live and how they're inherited):**
 expectation. `pNoGather`/`pNoConsume` are **frozen** (the luck environment, not
 under selection).
 
-**Status:** the within-village mechanic is implemented as the `genome` regime in
-the single-population sim (genes uniform, policy = median, integer math) and
-verified to reproduce the named policies. **Not yet built:** the grid, migration,
-village reproduction/colonization, and evolution of the social genes — these need
-the open decisions below.
+**Between-group engine — Model V (design complete; building next).** A **10×10**
+grid; each cell is empty or holds a village (a variable-size population). Per
+tick, each village: gather → enact policy (per-gene median vote) → `genome`
+redistribute → consume → **death** → **reproduction** → **fission**; then agents
+**migrate** across the grid.
 
-**Open (the between-group engine — next design pass):**
-- Grid shape and **village carrying capacity** (fixed N per cell? variable?).
-- **Within-village reproduction:** who replaces the dead — random survivor,
-  fitness-proportional, fission? Offspring inherit (mutated) genes.
-- **Between-village selection:** village fission into empty/weak neighbors,
-  extinction-and-recolonization, or individual migration carrying genes/votes?
-- **Migration rate** (the key group-selection knob) and whether migrants vote.
-- Build **V or G first** (lean V — genome is already individual).
+- **Death (variable population, removal not replacement).** An agent whose needs
+  went unmet this tick dies with prob `starveDeathChance`; every agent also dies
+  with the background `deathChance`. Dead agents are removed. A village at pop 0
+  goes **extinct**, freeing the cell.
+- **Reproduction (needs-met growth points).** Each tick a village gains +1 point
+  per **needs-met** villager (rewards size *and* equity; hoarding earns nothing
+  because the starving aren't counted). When `growthPoints ≥ birthThreshold`,
+  subtract the threshold and, if `pop < cap`, **birth** one villager — a random
+  needs-met parent, genes inherited with mutation, endowed `initialStock`. The
+  same signal at `pop ≥ cap` triggers **fission** instead.
+- **Fission.** Send ~half the village to an eligible neighbor — any cell with
+  `pop < fissionMaxFraction · cap` (empty included). Empty target → new village;
+  under-full target → colonists join (group-level gene flow).
+- **Migration (3 independent vectors, each its own swept probability; one move
+  per tick, priority starve → misfit → random).** Destinations may be **empty
+  cells** (an empty cell = zero mismatch, so a misfit founds its own village):
+  - `pMigrateRandom` → a random neighbor.
+  - `pMigrateMisfit` → fires at `pMigrateMisfit · mismatch` (mismatch = policy
+    gene distance, normalized); go to the lowest-mismatch neighbor (voice+exit /
+    Tiebout sorting).
+  - `pMigrateStarve` → if unfed this tick, go to the highest per-capita-stock
+    neighbor (fallback random).
+- **Luck** set ~1% net positive (`pNoConsume − pNoGather ≈ 0.01`) so villages
+  creep upward while starvation still bites (keeps `coop` under selection).
+- **Cap** is a hard gate (no probability blend): below cap, points → birth;
+  at/above cap, points → fission. Defaults: cap 100, `birthThreshold ≈ cap/2`,
+  `fissionMaxFraction` 0.5, social-gene mutation σ 0.02.
+
+This rule set *is* the multilevel selection: `coop` is selected within villages
+(via differential survival), the policy genes between villages (needs-met growth
+→ fission/extinction). The migration probabilities tune which level wins.
+
+**Model G** then adds a village-level policy genome (no voting; village-replicator
+inheritance on fission) over the identical mechanics, for the V-vs-G comparison.
+
+**Status:** within-village mechanic built and verified (`genome` regime). **Next:**
+build the Model V grid (World + Village over the existing genome redistribution),
+then evolve the social genes.
 
 ## Open questions
 
