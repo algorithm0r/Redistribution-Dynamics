@@ -63,8 +63,10 @@ function createSimContext() {
     load('util.js');
     load('parameters.js');
     load('agent.js');
+    load('village.js');
     load('datamanager.js');
     load('population.js');
+    load('world.js');
     load('runs.js');
 
     return ctx;
@@ -95,8 +97,8 @@ if (!isMainThread) {
             let runComplete = false;
             ctx.loadNextRunParameters = () => { runComplete = true; };
 
-            const pop = vm.runInContext('new Population()', ctx);
-            while (!runComplete) pop.update();
+            const sim = vm.runInContext(PARAMETERS.spatial ? 'new World()' : 'new Population()', ctx);
+            while (!runComplete) sim.update();
 
             if (capturedData) {
                 const col = client.db(capturedData.db).collection(capturedData.collection);

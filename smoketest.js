@@ -23,7 +23,7 @@ function createCtx() {
                    .replace(/^class\s+(\w+)/gm, 'var $1 = class $1');
         vm.runInContext(code, ctx);
     };
-    ['util.js','parameters.js','agent.js','datamanager.js','population.js','runs.js'].forEach(load);
+    ['util.js','parameters.js','agent.js','village.js','datamanager.js','population.js','runs.js'].forEach(load);
     return ctx;
 }
 

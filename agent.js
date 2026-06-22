@@ -52,17 +52,24 @@ class Agent {
         else { this.hungerCount += 1; this.starved = true; }
     }
 
-    /** A mutated offspring inheriting this agent's traits (evolution mode). */
+    /**
+     * A mutated offspring. The boon/bane traits are inherited unchanged (frozen
+     * environment); the social genome (tau,theta,phi,kappa,lambda,coop) is
+     * inherited with Gaussian mutation — this is what evolves under selection.
+     */
     spawnChild() {
         const child = new Agent();
-        const mutate = () => generateNormalSample(0, PARAMETERS.mutationStdev);
-        if (PARAMETERS.coupleTraits) {
-            // One gene, held equal (this.pNoGather === this.pNoConsume here).
-            child.pNoGather = child.pNoConsume = clamp01(this.pNoGather + mutate());
-        } else {
-            child.pNoGather = clamp01(this.pNoGather + mutate());
-            child.pNoConsume = clamp01(this.pNoConsume + mutate());
-        }
+        const m = () => generateNormalSample(0, PARAMETERS.mutationStdev);
+
+        child.pNoGather = this.pNoGather;     // frozen
+        child.pNoConsume = this.pNoConsume;   // frozen
+
+        child.tau    = clamp01(this.tau + m());
+        child.theta  = clamp01(this.theta + m());
+        child.phi    = clamp01(this.phi + m());
+        child.kappa  = clamp01(this.kappa + m());
+        child.lambda = clamp01(this.lambda + m());
+        child.coop   = clamp01(this.coop + m());
         return child;
     }
 

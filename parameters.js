@@ -43,6 +43,21 @@ const PARAMETERS = {
     deathChance: 0.001,       // per-tick random (trait-independent) death chance
     coupleTraits: false,      // tie pNoGather == pNoConsume as one gene (drift 0)
 
+    // Model V — grid of villages (spatial group selection; see DEVPLAN.md).
+    spatial: false,           // run the World grid instead of a single Population
+    gridRows: 10,
+    gridCols: 10,
+    seedVillages: 10,         // founding villages on the empty grid
+    seedPop: 30,              // starting population per founding village
+    cap: 100,                 // soft carrying capacity per village
+    birthThreshold: 50,       // growth points (needs-met villager-ticks) per new villager
+    fissionSize: 0.5,         // fraction of a capped village that buds off
+    fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
+    starveDeathChance: 0.1,   // per-tick death chance for an unfed agent
+    pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
+    pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
+    pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)
+
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
     // ── Framework / data ───────────────────────────────────────────────────
