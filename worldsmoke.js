@@ -27,12 +27,15 @@ function createCtx() {
     return ctx;
 }
 
+const UNIFORM = { randomizeGenes: false };
 const scenarios = [
-    { label: 'cooperative-pool', genes: { tau: 0.7, theta: 0.2, phi: 1, kappa: 0, lambda: 0, coop: 1.0 } },
-    { label: 'laissez-faire',    genes: { tau: 0.0, theta: 0.5, phi: 1, kappa: 0, lambda: 0, coop: 1.0 } },
-    { label: 'defector-pool',    genes: { tau: 0.7, theta: 0.2, phi: 1, kappa: 0, lambda: 0.3, coop: 0.4 } },
+    { label: 'cooperative-pool', genes: { tau: 0.7, theta: 0.2, phi: 1, kappa: 0, lambda: 0, coop: 1.0 }, extra: UNIFORM },
+    { label: 'laissez-faire',    genes: { tau: 0.0, theta: 0.5, phi: 1, kappa: 0, lambda: 0, coop: 1.0 }, extra: UNIFORM },
+    { label: 'defector-pool',    genes: { tau: 0.7, theta: 0.2, phi: 1, kappa: 0, lambda: 0.3, coop: 0.4 }, extra: UNIFORM },
     { label: 'migration-mix',    genes: { tau: 0.6, theta: 0.3, phi: 1, kappa: 0, lambda: 0, coop: 0.9 },
-                                 extra: { pMigrateRandom: 0.02, pMigrateMisfit: 0.05, pMigrateStarve: 0.1 } },
+                                 extra: { ...UNIFORM, pMigrateRandom: 0.02, pMigrateMisfit: 0.05, pMigrateStarve: 0.1 } },
+    // Randomized founders + Tiebout sorting — the intended Model V starting state.
+    { label: 'random-founders',  genes: {}, extra: { randomizeGenes: true, pMigrateMisfit: 0.05, pMigrateStarve: 0.05 } },
 ];
 
 const EPOCH = 500;

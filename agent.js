@@ -35,6 +35,16 @@ class Agent {
         }
     }
 
+    /** Replace the social genome with uniform-random values (founder diversity). */
+    randomizeGenome() {
+        this.tau = Math.random();
+        this.theta = Math.random();
+        this.phi = Math.random();
+        this.kappa = Math.random();
+        this.lambda = Math.random();
+        this.coop = Math.random();
+    }
+
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
     gather() {
         this.starved = false;

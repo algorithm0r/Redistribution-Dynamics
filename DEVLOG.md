@@ -4,6 +4,14 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Compacted the control panel + randomized founders.** Reworked the UI CSS so
+  panels lay their fieldsets out side-by-side (two columns, ~560px) with compact
+  inline label/input rows — much shorter. Added `randomizeGenes` (default on):
+  the World seeds each founder with uniform-random social genes (so villages
+  start diverse and selection has variation to act on), `seedPop` 30 → 12, plus a
+  UI checkbox. `worldsmoke` named scenarios pinned to `randomizeGenes:false`; new
+  `random-founders` scenario starts ~0.5 and drifts to tau 0.56 / phi 0.56 over
+  500 ticks — a first hint of selection toward redistribution.
 - **Built Model V.** New `village.js` (Village + shared `applyGenomePolicy` /
   `pourWaterFill`) and `world.js` (10×10 `World`: per-village economy → needs-met
   growth → birth-below-cap / fission-at-cap, extinction, three migration vectors,

@@ -17,7 +17,11 @@ class World {
             const r = randomInt(this.rows), c = randomInt(this.cols);
             if (this.grid[r][c]) continue;
             const agents = [];
-            for (let i = 0; i < PARAMETERS.seedPop; i++) agents.push(new Agent());
+            for (let i = 0; i < PARAMETERS.seedPop; i++) {
+                const a = new Agent();
+                if (PARAMETERS.randomizeGenes) a.randomizeGenome();
+                agents.push(a);
+            }
             this.grid[r][c] = new Village(r, c, agents);
             seeded++;
         }
