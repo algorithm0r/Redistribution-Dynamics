@@ -38,11 +38,49 @@ body {
 }
 
 /* Section spacing */
-#initial, #parameters, #controls {
+.panel, #controls {
     border-radius: 8px;
     background-color: lavenderblush;
-    padding: 16px;
-    margin-bottom: 24px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+/* Tabs */
+#tabs {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0;
+}
+#tabs .tab {
+    flex: 1 1 auto;
+    margin-top: 0;
+    padding: 8px 6px;
+    font-size: 0.9rem;
+    background: #cfd8dc;
+    color: #37474f;
+    border-radius: 6px 6px 0 0;
+}
+#tabs .tab.active {
+    background: #4fc3f7;
+    color: #fff;
+}
+#tabs .tab:hover {
+    background: #b0bec5;
+}
+#tabs .tab.active:hover {
+    background: #0288d1;
+}
+
+fieldset {
+    border: 1px solid #e0c0cc;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+}
+fieldset legend {
+    font-weight: 600;
+    color: #d32f2f;
+    padding: 0 6px;
 }
 
 #runName {

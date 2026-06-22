@@ -20,6 +20,29 @@ function startRun() {
     gameEngine.addEntity(PARAMETERS.spatial ? new World() : new Population());
 }
 
+/** Switch the control panel between the spatial and single-population parameter
+ *  sets, and set the hidden `spatial` flag read by loadParametersFromUI. */
+function selectModel(isSpatial) {
+    const spatial = document.getElementById("spatial");
+    if (spatial) spatial.checked = isSpatial;
+    const tabS = document.getElementById("tabSpatial");
+    const tabN = document.getElementById("tabSingle");
+    const panelS = document.getElementById("panelSpatial");
+    const panelN = document.getElementById("panelSingle");
+    if (tabS) tabS.classList.toggle("active", isSpatial);
+    if (tabN) tabN.classList.toggle("active", !isSpatial);
+    if (panelS) panelS.style.display = isSpatial ? "" : "none";
+    if (panelN) panelN.style.display = isSpatial ? "none" : "";
+}
+
+function setupTabs() {
+    const tabS = document.getElementById("tabSpatial");
+    const tabN = document.getElementById("tabSingle");
+    if (tabS) tabS.onclick = () => selectModel(true);
+    if (tabN) tabN.onclick = () => selectModel(false);
+    selectModel(true);   // default to the spatial (Model V) tab
+}
+
 function loadFirstRunParameters() {
     if (runs.length === 0) { console.warn("No runs defined in runs.js."); return; }
     runIndex = 0;
@@ -39,6 +62,8 @@ function loadNextRunParameters() {
 }
 
 ASSET_MANAGER.downloadAll(() => {
+    setupTabs();
+
     const resetButton = document.getElementById("resetButton");
     if (resetButton) resetButton.onclick = () => { loadParametersFromUI(); startRun(); };
 

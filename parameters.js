@@ -125,7 +125,7 @@ const saveParametersToUI = () => {
     document.getElementById("coupleTraits").checked = PARAMETERS.coupleTraits;
     document.getElementById("epoch").value         = PARAMETERS.epoch;
 
-    document.getElementById("spatial").checked          = PARAMETERS.spatial;
+    if (typeof selectModel === "function") selectModel(PARAMETERS.spatial);
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
