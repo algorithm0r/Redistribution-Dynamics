@@ -59,9 +59,12 @@ for (const s of scenarios) {
 
     const d = captured.data;
     const last = a => a[a.length - 1];
+    const tauHist = d.geneHistograms.tau;
+    const lastBins = tauHist[tauHist.length - 1];
     console.log(
         `${s.label.padEnd(17)} | villages ${String(last(d.villages)).padStart(3)} | ` +
         `pop ${String(last(d.population)).padStart(5)} | ` +
-        `coop ${last(d.coop).toFixed(3)} | tau ${last(d.tau).toFixed(3)} | phi ${last(d.phi).toFixed(3)}`
+        `coop ${last(d.coop).toFixed(3)} | tau ${last(d.tau).toFixed(3)} | phi ${last(d.phi).toFixed(3)} | ` +
+        `tauHist[${tauHist.length} snaps, sum ${lastBins.reduce((a, b) => a + b, 0)}]`
     );
 }

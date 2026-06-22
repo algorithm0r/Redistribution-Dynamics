@@ -4,6 +4,13 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Added per-gene histograms over time.** Following the BioDegen convention,
+  `WorldDataManager` now records, each reporting period, a 20-bucket distribution
+  of every social gene (τ,θ,φ,κ,λ,coop) across all living agents; `WorldObserver`
+  draws six `Histogram` heat-strips (one per gene, value low→high bottom→top) and
+  the series ship in the data packet (`geneHistograms`). Repositioned the line
+  graphs and shrank the grid cells so all fit on the canvas. Smoke confirms 51
+  snapshots/run, each summing to the population.
 - **Compacted the control panel + randomized founders.** Reworked the UI CSS so
   panels lay their fieldsets out side-by-side (two columns, ~560px) with compact
   inline label/input rows — much shorter. Added `randomizeGenes` (default on):
