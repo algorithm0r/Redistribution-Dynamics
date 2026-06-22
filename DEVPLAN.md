@@ -238,6 +238,79 @@ credit. (Explains why the typology jumps from gifts straight to employment.)
 regime-specific concentration (ownership in 4, reputation spread in 3, pool
 dynamics in 5).
 
+---
+
+### Model 2 — Villages & Group Selection (within-village mechanic built; grid pending)
+
+A grid of **villages**, each running the within-village exchange over its own
+population every tick. Selection acts at two levels: *within* villages (defectors
+out-earn cooperators) and *between* villages (which institutions let a village
+persist and spread on the grid). This is the multilevel-selection model; the grid
++ migration rate is the dial that decides which level wins.
+
+**The genome (6 genes, every value in [0,1]).** Five define the *institution*;
+one is *behavioral*.
+
+| gene | role | meaning |
+|---|---|---|
+| **τ** rate | policy | fraction of the taxable bracket collected |
+| **θ** threshold | policy | exemption: only stock above `θ·R` (R = richest) is taxable — progressivity |
+| **φ** focus | policy | distribute equally (0) ↔ neediest-first (1) |
+| **κ** hub | policy | share the hub (= current richest) keeps before the rest is distributed |
+| **λ** punish | policy | chance a defector's withheld due is destroyed (costly punishment) |
+| **coop** | behavioral | chance the agent actually pays in when the enacted policy asks |
+
+**Within-village redistribution** (per tick, between gather and consume):
+1. **Enact policy.** Each policy gene is set for the village. Two governance
+   models below; the resulting `(τ,θ,φ,κ,λ)` is applied uniformly this tick.
+2. **Collect.** R = richest stock. Each agent's due = `τ·max(0, stock − θ·R)`
+   (stochastically rounded to an integer, capped at stock). A **cooperator**
+   (roll < `coop`) pays it into the pot. A **defector** withholds; with prob `λ`
+   the due is destroyed (deadweight), else kept.
+3. **Hub.** If `κ>0`, the richest agent keeps `κ·pot`; the rest is distributable.
+4. **Distribute.** Split the pot: `φ` fraction goes by **water-filling** (pour
+   units into the lowest stocks first), `1−φ` fraction equally to all. Integer
+   throughout (per-unit / floor+random-remainder).
+
+Named policies are coordinates: `none` = τ0; `pool` = τ1,θ0,φ0,κ0; `floor` ≈
+τ1,θ hi,φ1; `chiefdom` = τ1,φ1,κ>0; `tax` = τ partial; `theft`/`share` differ
+only by who defects and `λ`.
+
+**Two governance models (identical genome & partition; differ only in where the
+policy genes live and how they're inherited):**
+- **Model V (voting).** Policy genes live on **agents** as preferences; the
+  village's enacted policy is the per-gene **median** of its residents
+  (single-peaked scalars → stable, no Condorcet cycles). Inherited by individual
+  reproduction; policy is an emergent phenotype that drifts as the population
+  turns over.
+- **Model G (village genome).** Policy genes live on the **village** as a
+  heritable unit (no voting); villagers are born into it. Inherited by village
+  reproduction/colonization.
+- In both, `coop` is individual (within-group selection); the policy genes are
+  the between-group force, via ballot (V) or village replicator (G). Build both
+  on the same policy space to compare: *does bottom-up voting evolve different
+  institutions than top-down group selection?*
+
+**Conventions.** Stocks are **integers**; continuous genes act through
+**stochastic rounding** (floor, +1 with prob = fractional part), conserved in
+expectation. `pNoGather`/`pNoConsume` are **frozen** (the luck environment, not
+under selection).
+
+**Status:** the within-village mechanic is implemented as the `genome` regime in
+the single-population sim (genes uniform, policy = median, integer math) and
+verified to reproduce the named policies. **Not yet built:** the grid, migration,
+village reproduction/colonization, and evolution of the social genes — these need
+the open decisions below.
+
+**Open (the between-group engine — next design pass):**
+- Grid shape and **village carrying capacity** (fixed N per cell? variable?).
+- **Within-village reproduction:** who replaces the dead — random survivor,
+  fitness-proportional, fission? Offspring inherit (mutated) genes.
+- **Between-village selection:** village fission into empty/weak neighbors,
+  extinction-and-recolonization, or individual migration carrying genes/votes?
+- **Migration rate** (the key group-selection knob) and whether migrants vote.
+- Build **V or G first** (lean V — genome is already individual).
+
 ## Open questions
 
 - Scope of v1: a single exchange type (employment) vs. several from the start.
@@ -250,7 +323,11 @@ dynamics in 5).
 - [x] Scaffold project: repo, README, DEVPLAN, DEVLOG, .gitignore.
 - [x] Stand up the bare framework (machinery copied/cleaned; domain stubbed).
 - [x] Record Model 1 (dictation) and reframe regimes as a dimension space.
-- [ ] **Stage 1: implement Mode 1 with three automatic regimes** (none / share /
-      pool); visualize Gini, stock, hunger; verify in browser + runner.
-- [ ] Broaden the regime set along the dimension axes.
-- [ ] Mode 2: evolutionary group selection over the dimension space.
+- [x] Stage 1: Mode 1 with automatic regimes (none / share / theft / pool);
+      Gini / stock / hunger; verified in browser + smoke.
+- [x] Trait evolution (boon/bane) + random death + couple-traits — explored, then
+      froze `pNoGather`/`pNoConsume` for runs.
+- [~] Model 2 genome: continuous policy genes (τ,θ,φ,κ,λ) + coop; within-village
+      mechanic implemented as the `genome` regime and verified.
+- [ ] Model 2 grid: villages, migration, village reproduction, group selection
+      (V and G variants); evolve the social genes.

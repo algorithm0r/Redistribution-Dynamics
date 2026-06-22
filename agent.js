@@ -19,6 +19,15 @@ class Agent {
         this.pNoGather = PARAMETERS.pNoGather;     // bane: chance to fail gathering
         this.pNoConsume = PARAMETERS.pNoConsume;   // boon: chance to skip consuming
 
+        // Model 2 social genome (used by the 'genome' regime; see DEVPLAN.md).
+        // Five policy genes (voted into the village policy) + one behavioral gene.
+        this.tau = PARAMETERS.tau;       // preferred collection rate
+        this.theta = PARAMETERS.theta;   // preferred progressivity (exempt below theta*richest)
+        this.phi = PARAMETERS.phi;       // preferred distribution: equal (0) <-> neediest (1)
+        this.kappa = PARAMETERS.kappa;   // preferred hub retention (centralization)
+        this.lambda = PARAMETERS.lambda; // preferred punishment: chance a defector's due is destroyed
+        this.coop = PARAMETERS.coop;     // behavioral: chance to actually pay in when asked
+
         // When coupled, the two traits are one gene held equal (so the boon and
         // bane can't diverge); seed both from their average. Net drift is then 0.
         if (PARAMETERS.evolveTraits && PARAMETERS.coupleTraits) {

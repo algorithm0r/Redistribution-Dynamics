@@ -2,6 +2,21 @@
 
 Newest entries at the top.
 
+## 2026-06-22
+
+- **Wrote the Model 2 design + built the within-village genome mechanic.** DEVPLAN
+  now has the Model 2 section: 6-gene genome (τ,θ,φ,κ,λ policy + coop behavioral),
+  the within-village redistribution pipeline (collect on a progressive bracket →
+  defectors withhold/are punished → hub keeps κ → distribute by φ water-fill),
+  the two governance models (V voting / G village-genome), and integer/stochastic-
+  rounding conventions. Implemented as the `genome` regime in the single-population
+  sim (genes uniform, policy = per-gene median, integer water-fill); added util
+  `stochasticRound`/`median`, 6 gene params + UI fieldset, genome runs, and smoke
+  scenarios. Verified coordinates: g-pool≈pool (Gini 0.028), g-none≈none, g-floor
+  strong leveling, g-chiefdom Gini 0.60 (entrenched hub), g-defectors collapse
+  (avg stock 0.5, hunger 4868) — redistribution is fragile to defection. Grid,
+  migration, village reproduction, and social-gene evolution still pending.
+
 ## 2026-06-18
 
 - **Added `coupleTraits` toggle.** Ties `pNoGather` and `pNoConsume` into one

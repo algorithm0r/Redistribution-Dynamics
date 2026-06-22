@@ -33,6 +33,12 @@ const scenarios = [
     { regime: 'none', evolveTraits: true, label: 'none+evo' },
     { regime: 'pool', evolveTraits: true, label: 'pool+evo' },
     { regime: 'none', evolveTraits: true, coupleTraits: true, label: 'none+evo+cpl' },
+    // Model 2 genome as coordinates — g-pool should track 'pool', g-none should track 'none'.
+    { regime: 'genome', tau: 0, label: 'g-none' },
+    { regime: 'genome', tau: 1, theta: 0, phi: 0, kappa: 0, lambda: 0, coop: 1, label: 'g-pool' },
+    { regime: 'genome', tau: 1, theta: 0.7, phi: 1, kappa: 0, lambda: 0, coop: 1, label: 'g-floor' },
+    { regime: 'genome', tau: 1, theta: 0, phi: 1, kappa: 0.5, lambda: 0, coop: 1, label: 'g-chiefdom' },
+    { regime: 'genome', tau: 0.5, theta: 0.5, phi: 1, kappa: 0, lambda: 0.5, coop: 0.5, label: 'g-defectors' },
 ];
 for (const scenario of scenarios) {
     const regime = scenario.regime;

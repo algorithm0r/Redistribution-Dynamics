@@ -23,8 +23,18 @@ const PARAMETERS = {
     //   'theft' — hungry agents seize 1 from a *random* agent with surplus;
     //             with prob conflictChance the resource is destroyed instead
     //   'pool'  — all stock pooled and split equally
+    //   'genome'— Model 2: redistribution driven by the social genome below
     regime: "none",
     conflictChance: 0.25,     // 'theft' only: chance the seized resource is lost
+
+    // Model 2 social genome (used by the 'genome' regime; see DEVPLAN.md). These
+    // seed every agent's genes; uniform for now (evolution comes with the grid).
+    tau: 0.5,        // collection rate
+    theta: 0.5,      // progressivity threshold (fraction of richest)
+    phi: 1.0,        // distribution focus: equal (0) -> neediest-first (1)
+    kappa: 0.0,      // hub (richest) retained share
+    lambda: 0.0,     // punishment: chance a defector's due is destroyed
+    coop: 1.0,       // compliance: chance an agent pays in when asked
 
     // Evolution: when on, a starving agent dies and is replaced by a mutated
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.
@@ -53,6 +63,12 @@ const loadParametersFromUI = () => {
     PARAMETERS.pNoConsume    = parseFloat(document.getElementById("pNoConsume").value);
     PARAMETERS.regime        = document.getElementById("regime").value;
     PARAMETERS.conflictChance = parseFloat(document.getElementById("conflictChance").value);
+    PARAMETERS.tau    = parseFloat(document.getElementById("tau").value);
+    PARAMETERS.theta  = parseFloat(document.getElementById("theta").value);
+    PARAMETERS.phi    = parseFloat(document.getElementById("phi").value);
+    PARAMETERS.kappa  = parseFloat(document.getElementById("kappa").value);
+    PARAMETERS.lambda = parseFloat(document.getElementById("lambda").value);
+    PARAMETERS.coop   = parseFloat(document.getElementById("coop").value);
     PARAMETERS.evolveTraits  = document.getElementById("evolveTraits").checked;
     PARAMETERS.mutationStdev = parseFloat(document.getElementById("mutationStdev").value);
     PARAMETERS.deathChance   = parseFloat(document.getElementById("deathChance").value);
@@ -71,6 +87,12 @@ const saveParametersToUI = () => {
     document.getElementById("pNoConsume").value   = PARAMETERS.pNoConsume;
     document.getElementById("regime").value       = PARAMETERS.regime;
     document.getElementById("conflictChance").value = PARAMETERS.conflictChance;
+    document.getElementById("tau").value    = PARAMETERS.tau;
+    document.getElementById("theta").value  = PARAMETERS.theta;
+    document.getElementById("phi").value    = PARAMETERS.phi;
+    document.getElementById("kappa").value  = PARAMETERS.kappa;
+    document.getElementById("lambda").value = PARAMETERS.lambda;
+    document.getElementById("coop").value   = PARAMETERS.coop;
     document.getElementById("evolveTraits").checked = PARAMETERS.evolveTraits;
     document.getElementById("mutationStdev").value = PARAMETERS.mutationStdev;
     document.getElementById("deathChance").value   = PARAMETERS.deathChance;

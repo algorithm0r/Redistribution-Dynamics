@@ -54,11 +54,12 @@ class Population {
     /** Apply the selected automatic redistribution rule for this tick. */
     redistribute() {
         switch (PARAMETERS.regime) {
-            case "share": this.shareToNeed(); break;
-            case "theft": this.theft();       break;
-            case "pool":  this.equalPool();   break;
+            case "share":  this.shareToNeed();      break;
+            case "theft":  this.theft();            break;
+            case "pool":   this.equalPool();        break;
+            case "genome": this.genomeRedistribute(); break;
             case "none":
-            default:      break;
+            default:       break;
         }
     }
 
@@ -95,6 +96,92 @@ class Population {
             donor.stock -= 1;
             if (Math.random() >= PARAMETERS.conflictChance) n.stock += 1;
             // else: resource lost to conflict
+        }
+    }
+
+    /**
+     * Model 2 within-village redistribution driven by the genome (see DEVPLAN.md).
+     * The enacted policy is the per-gene median of the residents (Model V voting;
+     * trivially the common value when genes are uniform). Pipeline: collect from
+     * a progressive bracket (cooperators pay, defectors withhold and may have
+     * their due destroyed), the hub keeps a share, the rest is distributed with a
+     * focus blend of equal split and neediest-first. Integer throughout.
+     */
+    genomeRedistribute() {
+        const agents = this.agents;
+        const N = agents.length;
+        if (N === 0) return;
+
+        // 1. Enact policy: per-gene median across residents.
+        const tau    = median(agents.map(a => a.tau));
+        const theta  = median(agents.map(a => a.theta));
+        const phi    = median(agents.map(a => a.phi));
+        const kappa  = median(agents.map(a => a.kappa));
+        const lambda = median(agents.map(a => a.lambda));
+
+        // 2. Collect.
+        const R = agents.reduce((m, a) => Math.max(m, a.stock), 0);
+        const threshold = theta * R;
+        let pot = 0;
+        for (const a of agents) {
+            let due = stochasticRound(tau * Math.max(0, a.stock - threshold));
+            due = Math.min(due, a.stock);
+            if (due <= 0) continue;
+            if (Math.random() < a.coop) {           // cooperator pays in
+                a.stock -= due;
+                pot += due;
+            } else if (Math.random() < lambda) {    // defector punished: due destroyed
+                a.stock -= due;
+            }                                        // else defector withholds
+        }
+        if (pot <= 0) return;
+
+        // 3. Hub (richest) keeps a share.
+        if (kappa > 0) {
+            const hub = agents.reduce((best, a) => (a.stock > best.stock ? a : best), agents[0]);
+            const keep = Math.min(pot, stochasticRound(kappa * pot));
+            hub.stock += keep;
+            pot -= keep;
+        }
+
+        // 4. Distribute the rest: phi fraction by need (water-fill), rest equally.
+        const needs = Math.min(pot, stochasticRound(phi * pot));
+        const equal = pot - needs;
+        if (equal > 0) {
+            const share = Math.floor(equal / N);
+            let rem = equal - share * N;
+            agents.forEach(a => a.stock += share);
+            while (rem-- > 0) agents[randomInt(N)].stock += 1;
+        }
+        if (needs > 0) this.waterFill(needs);
+    }
+
+    /** Distribute `units` integer units into the lowest stocks first (level the floor). */
+    waterFill(units) {
+        const order = [...this.agents].sort((x, y) => x.stock - y.stock);
+        const n = order.length;
+        while (units > 0) {
+            const minH = order[0].stock;
+            let width = 1;
+            while (width < n && order[width].stock === minH) width++;
+            if (width === n) {                       // all level: spread the remainder
+                let j = 0;
+                while (units-- > 0) order[j++ % n].stock += 1;
+                return;
+            }
+            const rise = order[width].stock - minH;
+            const cost = rise * width;
+            if (cost <= units) {                     // raise the whole bottom plateau
+                for (let j = 0; j < width; j++) order[j].stock = order[width].stock;
+                units -= cost;
+            } else {                                 // partial: lift the plateau as far as it goes
+                const step = Math.floor(units / width);
+                for (let j = 0; j < width; j++) order[j].stock += step;
+                units -= step * width;
+                let j = 0;
+                while (units-- > 0) order[j++ % width].stock += 1;
+                return;
+            }
         }
     }
 

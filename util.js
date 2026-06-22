@@ -23,6 +23,21 @@ const generateNormalSample = (mean = 0, stdDev = 1) => {
 /** Clamp a number into [0, 1]. */
 const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
 
+/** Round x to an integer stochastically: floor(x), plus 1 with prob = frac(x).
+ *  Keeps integer stocks while honouring continuous rates in expectation. */
+const stochasticRound = x => {
+    const f = Math.floor(x);
+    return f + (Math.random() < x - f ? 1 : 0);
+};
+
+/** Median of a numeric array (0 if empty). */
+const median = arr => {
+    if (arr.length === 0) return 0;
+    const s = [...arr].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
 /** @returns String usable as an rgb web color */
 const rgb = (r, g, b) => `rgb(${r}, ${g}, ${b})`;
 

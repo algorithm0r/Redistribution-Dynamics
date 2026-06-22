@@ -43,10 +43,27 @@
                     <option value="share">share — hungry take from richest</option>
                     <option value="theft">theft — hungry seize from random (may be lost)</option>
                     <option value="pool">pool — split equally each tick</option>
+                    <option value="genome">genome — policy from the social genes</option>
                 </select><br><br>
 
                 <label for="conflictChance">Conflict loss chance (theft only):</label>
                 <input type="number" id="conflictChance" value="0.25" step="0.01" min="0" max="1"><br>
+
+                <fieldset>
+                    <legend>Social genome (regime = genome)</legend>
+                    <label for="tau">&tau; collection rate:</label>
+                    <input type="number" id="tau" value="0.5" step="0.05" min="0" max="1"><br>
+                    <label for="theta">&theta; progressivity (frac of richest exempt):</label>
+                    <input type="number" id="theta" value="0.5" step="0.05" min="0" max="1"><br>
+                    <label for="phi">&phi; focus (equal 0 &rarr; neediest 1):</label>
+                    <input type="number" id="phi" value="1.0" step="0.05" min="0" max="1"><br>
+                    <label for="kappa">&kappa; hub retention:</label>
+                    <input type="number" id="kappa" value="0.0" step="0.05" min="0" max="1"><br>
+                    <label for="lambda">&lambda; punishment (destroy defector due):</label>
+                    <input type="number" id="lambda" value="0.0" step="0.05" min="0" max="1"><br>
+                    <label for="coop">coop (compliance):</label>
+                    <input type="number" id="coop" value="1.0" step="0.05" min="0" max="1"><br>
+                </fieldset>
 
                 <label for="pNoGather">Chance to fail gathering (bane):</label>
                 <input type="number" id="pNoGather" value="0.1" step="0.01" min="0" max="1"><br>
