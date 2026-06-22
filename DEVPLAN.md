@@ -312,9 +312,11 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
   subtract the threshold and, if `pop < cap`, **birth** one villager — a random
   needs-met parent, genes inherited with mutation, endowed `initialStock`. The
   same signal at `pop ≥ cap` triggers **fission** instead.
-- **Fission.** Send ~half the village to an eligible neighbor — any cell with
-  `pop < fissionMaxFraction · cap` (empty included). Empty target → new village;
-  under-full target → colonists join (group-level gene flow).
+- **Fission.** Send a `fissionSize` fraction of the village (default 0.5 = at most
+  half) to an eligible neighbor — any cell with `pop < fissionMaxFraction · cap`
+  (default 0.5 = at most half full; empty included). Empty target → new village;
+  under-full target → colonists join (group-level gene flow). If no neighbor
+  qualifies, the village can't fission this tick and sits at cap.
 - **Migration (3 independent vectors, each its own swept probability; one move
   per tick, priority starve → misfit → random).** Destinations may be **empty
   cells** (an empty cell = zero mismatch, so a misfit founds its own village):
@@ -328,7 +330,7 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
   creep upward while starvation still bites (keeps `coop` under selection).
 - **Cap** is a hard gate (no probability blend): below cap, points → birth;
   at/above cap, points → fission. Defaults: cap 100, `birthThreshold ≈ cap/2`,
-  `fissionMaxFraction` 0.5, social-gene mutation σ 0.02.
+  `fissionSize` 0.5, `fissionMaxFraction` 0.5, social-gene mutation σ 0.02.
 
 This rule set *is* the multilevel selection: `coop` is selected within villages
 (via differential survival), the policy genes between villages (needs-met growth
