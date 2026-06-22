@@ -89,6 +89,17 @@ const loadParametersFromUI = () => {
     PARAMETERS.deathChance   = parseFloat(document.getElementById("deathChance").value);
     PARAMETERS.coupleTraits  = document.getElementById("coupleTraits").checked;
     PARAMETERS.epoch         = parseInt(document.getElementById("epoch").value);
+
+    PARAMETERS.spatial            = document.getElementById("spatial").checked;
+    PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
+    PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
+    PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
+    PARAMETERS.fissionSize        = parseFloat(document.getElementById("fissionSize").value);
+    PARAMETERS.fissionMaxFraction = parseFloat(document.getElementById("fissionMaxFraction").value);
+    PARAMETERS.pMigrateRandom     = parseFloat(document.getElementById("pMigrateRandom").value);
+    PARAMETERS.pMigrateMisfit     = parseFloat(document.getElementById("pMigrateMisfit").value);
+    PARAMETERS.pMigrateStarve     = parseFloat(document.getElementById("pMigrateStarve").value);
+
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
@@ -113,6 +124,17 @@ const saveParametersToUI = () => {
     document.getElementById("deathChance").value   = PARAMETERS.deathChance;
     document.getElementById("coupleTraits").checked = PARAMETERS.coupleTraits;
     document.getElementById("epoch").value         = PARAMETERS.epoch;
+
+    document.getElementById("spatial").checked          = PARAMETERS.spatial;
+    document.getElementById("cap").value                = PARAMETERS.cap;
+    document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
+    document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
+    document.getElementById("fissionSize").value        = PARAMETERS.fissionSize;
+    document.getElementById("fissionMaxFraction").value = PARAMETERS.fissionMaxFraction;
+    document.getElementById("pMigrateRandom").value     = PARAMETERS.pMigrateRandom;
+    document.getElementById("pMigrateMisfit").value     = PARAMETERS.pMigrateMisfit;
+    document.getElementById("pMigrateStarve").value     = PARAMETERS.pMigrateStarve;
+
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
 };

@@ -359,7 +359,9 @@ then evolve the social genes.
       Gini / stock / hunger; verified in browser + smoke.
 - [x] Trait evolution (boon/bane) + random death + couple-traits — explored, then
       froze `pNoGather`/`pNoConsume` for runs.
-- [~] Model 2 genome: continuous policy genes (τ,θ,φ,κ,λ) + coop; within-village
+- [x] Model 2 genome: continuous policy genes (τ,θ,φ,κ,λ) + coop; within-village
       mechanic implemented as the `genome` regime and verified.
-- [ ] Model 2 grid: villages, migration, village reproduction, group selection
-      (V and G variants); evolve the social genes.
+- [x] Model V grid built: villages, needs-met growth → birth/fission, extinction,
+      three migration vectors, social-gene evolution; headless + browser.
+- [ ] Tune luck/params for a clear selection signal; run migration sweeps.
+- [ ] Model G: village-level policy genome (no voting) for the V-vs-G comparison.

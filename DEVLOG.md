@@ -4,6 +4,17 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Built Model V.** New `village.js` (Village + shared `applyGenomePolicy` /
+  `pourWaterFill`) and `world.js` (10×10 `World`: per-village economy → needs-met
+  growth → birth-below-cap / fission-at-cap, extinction, three migration vectors,
+  `WorldDataManager` + grid `WorldObserver`). `spawnChild` now inherits + mutates
+  the **social genome** (boon/bane frozen). Added Model V params + control-panel
+  fieldset + a `spatial` toggle (`main.js` launches `World` vs `Population`);
+  runner/smoke loaders updated; `worldsmoke.js` added. `worldsmoke` (6×6, cap 40,
+  500 ticks): grid saturates to 36 villages, social genes inherit + drift,
+  defector-pool holds coop≈0.40, migration mixes villages. Single-pop genome smoke
+  still reproduces the named policies; boon/bane stay frozen. Known wrinkle:
+  migration can push a village slightly over cap (it fissions back down).
 - **Finalized the Model V between-group design** (recorded in DEVPLAN). Variable
   population (removal, not replacement): starvation kills with `starveDeathChance`
   plus background `deathChance`; pop-0 villages go extinct. Reproduction via

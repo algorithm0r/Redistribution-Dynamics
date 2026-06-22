@@ -17,7 +17,7 @@ if (window.io !== undefined) {
 
 function startRun() {
     gameEngine.entities = [];
-    gameEngine.addEntity(new Population());
+    gameEngine.addEntity(PARAMETERS.spatial ? new World() : new Population());
 }
 
 function loadFirstRunParameters() {
