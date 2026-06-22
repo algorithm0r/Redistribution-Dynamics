@@ -114,9 +114,17 @@ class World {
     }
 
     migrate() {
+        // Skip entirely when no migration vector is active (the common case).
+        if (PARAMETERS.pMigrateRandom <= 0 && PARAMETERS.pMigrateMisfit <= 0 && PARAMETERS.pMigrateStarve <= 0) return;
+
+        // Cache each village's enacted policy once per tick (misfit needs it);
+        // migrationDest would otherwise recompute the 5 medians for every agent.
+        const villages = this.villages();
+        if (PARAMETERS.pMigrateMisfit > 0) villages.forEach(v => v.cachedPolicy = v.enactedPolicy());
+
         // Collect moves from the pre-migration state, then apply atomically.
         const moves = [];
-        for (const v of this.villages()) {
+        for (const v of villages) {
             for (const a of v.agents) {
                 const dest = this.migrationDest(v, a);
                 if (dest) moves.push([a, v, dest]);
@@ -137,9 +145,11 @@ class World {
         if (a.starved && Math.random() < PARAMETERS.pMigrateStarve) {
             return this.bestFoodNeighbor(v) || this.randomNeighbor(v);
         }
-        const mismatch = policyDistance(a, v.enactedPolicy());
-        if (Math.random() < PARAMETERS.pMigrateMisfit * mismatch) {
-            return this.bestFitNeighbor(v, a);
+        if (PARAMETERS.pMigrateMisfit > 0) {
+            const mismatch = policyDistance(a, v.cachedPolicy);
+            if (Math.random() < PARAMETERS.pMigrateMisfit * mismatch) {
+                return this.bestFitNeighbor(v, a);
+            }
         }
         if (Math.random() < PARAMETERS.pMigrateRandom) {
             return this.randomNeighbor(v);
@@ -166,7 +176,8 @@ class World {
         let best = null, bestD = Infinity;
         for (const [r, c] of this.neighbors(v.row, v.col)) {
             const n = this.grid[r][c];
-            const d = n ? policyDistance(a, n.enactedPolicy()) : 0;  // empty = perfect fit
+            // empty cell = perfect fit (0); use the cached policy for occupied cells
+            const d = n ? policyDistance(a, n.cachedPolicy || (n.cachedPolicy = n.enactedPolicy())) : 0;
             if (d < bestD) { bestD = d; best = [r, c]; }
         }
         return best;
@@ -186,30 +197,25 @@ class WorldDataManager {
         this.reportingPeriod = PARAMETERS.reportingPeriod;
         this.popSeries = [];
         this.villageSeries = [];
-        this.coopSeries = [];
-        this.tauSeries = [];
-        this.phiSeries = [];
 
-        // Per-gene distribution over time: each entry is a 20-bucket histogram of
-        // the gene's value across all living agents that reporting period.
+        // Per gene: mean over time, and a 20-bucket value distribution over time.
         this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop'];
+        this.geneMean = {};
         this.geneHist = {};
-        this.geneNames.forEach(g => this.geneHist[g] = []);
+        this.geneNames.forEach(g => { this.geneMean[g] = []; this.geneHist[g] = []; });
     }
 
     record() {
         const agents = this.world.villages().flatMap(v => v.agents);
         const n = agents.length;
-        const mean = f => (n ? agents.reduce((s, a) => s + f(a), 0) / n : 0);
         this.popSeries.push(n);
         this.villageSeries.push(this.world.villages().length);
-        this.coopSeries.push(mean(a => a.coop));
-        this.tauSeries.push(mean(a => a.tau));
-        this.phiSeries.push(mean(a => a.phi));
 
         this.geneNames.forEach(g => {
             const counts = new Array(20).fill(0);
-            agents.forEach(a => counts[Math.min(19, Math.floor(a[g] * 20))]++);
+            let sum = 0;
+            agents.forEach(a => { sum += a[g]; counts[Math.min(19, Math.floor(a[g] * 20))]++; });
+            this.geneMean[g].push(n ? sum / n : 0);
             this.geneHist[g].push(counts);
         });
     }
@@ -231,9 +237,7 @@ class WorldDataManager {
                 parameters: Object.assign({}, PARAMETERS),
                 population: this.popSeries,
                 villages: this.villageSeries,
-                coop: this.coopSeries,
-                tau: this.tauSeries,
-                phi: this.phiSeries,
+                geneMeans: this.geneMean,
                 geneHistograms: this.geneHist,
             },
         };
@@ -253,18 +257,17 @@ class WorldObserver {
         this.world = world;
         const gx = 1350, gw = 600;
         this.graphs = [
-            new Graph(gx, 40,  gw, 130, [dm.popSeries], "Total population", 0, 0, true),
-            new Graph(gx, 195, gw, 130, [dm.villageSeries], "Living villages", 0, 0, true),
-            new Graph(gx, 350, gw, 130, [dm.coopSeries, dm.tauSeries, dm.phiSeries],
-                "mean coop (g) / tau (r) / phi (c)", 0, 1, false, ["#00AA00", "#BB0000", "#00BBBB"]),
+            new Graph(gx, 36, gw, 70, [dm.popSeries], "Total population", 0, 0, true),
         ];
 
-        // One value-distribution heat-strip per gene (low values at bottom, high at top).
+        // One value-distribution heat-strip per gene (low at bottom, high at top),
+        // with the gene's mean traced as a white line on top.
         const labels = { tau: 'tau (rate)', theta: 'theta (progressivity)', phi: 'phi (focus)',
                          kappa: 'kappa (hub)', lambda: 'lambda (punish)', coop: 'coop (compliance)' };
-        const hy = 525, hstep = 70;
+        const hy = 150, hstep = 135, hh = 112;
         this.geneHistograms = dm.geneNames.map((g, i) =>
-            new Histogram(gx, hy + i * hstep, dm.geneHist[g], { label: labels[g], width: gw, height: 48 }));
+            new Histogram(gx, hy + i * hstep, dm.geneHist[g],
+                { label: labels[g], width: gw, height: hh, means: dm.geneMean[g] }));
     }
 
     update() {}

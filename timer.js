@@ -12,6 +12,7 @@ class Timer {
         const delta = (current - this.lastTimestamp) / 1000;
         this.lastTimestamp = current;
 
+        this.wallDelta = delta;   // real wall-clock frame time (for FPS)
         const gameDelta = Math.min(delta, this.maxStep);
         this.gameTime += gameDelta;
         return gameDelta;

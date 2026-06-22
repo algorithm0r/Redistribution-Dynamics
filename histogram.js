@@ -24,10 +24,25 @@ class Histogram {
 
         for (let i = 0; i < length; i++) {
             const snapshot = this.data[i + start];
+            const nb = snapshot.length;
             const total = snapshot.reduce((acc, x) => acc + x, 0);
-            for (let j = 0; j < snapshot.length; j++) {
-                this.fill(snapshot[j] / total, i, snapshot.length - 1 - j);
+            for (let j = 0; j < nb; j++) {
+                this.fill(snapshot[j] / total, i, nb - 1 - j, nb);
             }
+        }
+
+        // Optional white line tracing a per-snapshot mean value in [0,1] (high at top).
+        if (this.means && this.means.length > 1) {
+            this.ctx.strokeStyle = "#ffffff";
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            for (let i = 0; i < length; i++) {
+                const m = this.means[i + start];
+                const px = this.x + i;
+                const py = this.y + (1 - m) * this.height;
+                if (i === 0) this.ctx.moveTo(px, py); else this.ctx.lineTo(px, py);
+            }
+            this.ctx.stroke();
         }
 
         this.ctx.font = '10px Arial';
@@ -41,7 +56,7 @@ class Histogram {
         this.ctx.restore();
     }
 
-    fill(share, x, y) {
+    fill(share, x, yIndex, nBuckets) {
         let c = share * 99 + 1;
         c = 511 - Math.floor(Math.log(c) / Math.log(100) * 512);
         if (c > 255) {
@@ -50,8 +65,9 @@ class Histogram {
         } else {
             this.ctx.fillStyle = rgb(0, 0, c);
         }
-        const width = 1;
-        const height = Math.floor(this.height / 20);
-        this.ctx.fillRect(this.x + x * width, this.y + y * height, width, height);
+        // Tile rows over the full height so no strip is left blank at the bottom.
+        const top = Math.floor(yIndex * this.height / nBuckets);
+        const bot = Math.floor((yIndex + 1) * this.height / nBuckets);
+        this.ctx.fillRect(this.x + x, this.y + top, 1, bot - top);
     }
 }

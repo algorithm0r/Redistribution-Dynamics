@@ -4,6 +4,14 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Histogram polish, FPS readout, migration perf fix.** Fixed `Histogram.fill`
+  to tile rows over the full height (was `floor(height/20)`, leaving ~17% blank
+  at the bottom). Histograms now overlay each gene's mean as a white line; dropped
+  the "living villages" and mean-line graphs, halved the population graph, and
+  enlarged the six gene histograms. Added a smoothed **FPS** readout (top-right,
+  via `Timer.wallDelta`). **Perf:** migration was calling `enactedPolicy()` (5
+  median sorts) *per agent* — O(pop² log pop) per village; now the policy is
+  cached once per tick and migration is skipped entirely when all rates are 0.
 - **Added per-gene histograms over time.** Following the BioDegen convention,
   `WorldDataManager` now records, each reporting period, a 20-bucket distribution
   of every social gene (τ,θ,φ,κ,λ,coop) across all living agents; `WorldObserver`

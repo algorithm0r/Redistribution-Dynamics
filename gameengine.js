@@ -12,6 +12,7 @@ class GameEngine {
         this.wheel = null;
         this.rightclick = null;
         this.keys = {};
+        this.fps = 0;
 
         this.options = options || { debugging: false };
     }
@@ -72,6 +73,20 @@ class GameEngine {
         let loops = PARAMETERS.updatesPerDraw || 1;
         while (loops-- > 0) this.update();
         this.draw();
+        this.drawFPS();
         this.click = null;
+    }
+
+    drawFPS() {
+        const dt = this.timer.wallDelta || 0.016;
+        const inst = dt > 0 ? 1 / dt : 0;
+        this.fps = this.fps ? this.fps * 0.9 + inst * 0.1 : inst;   // smoothed
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.fillStyle = "#000";
+        ctx.font = "14px monospace";
+        ctx.textAlign = "right";
+        ctx.fillText(`${this.fps.toFixed(0)} fps`, ctx.canvas.width - 8, 18);
+        ctx.restore();
     }
 }
