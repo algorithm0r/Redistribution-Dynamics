@@ -55,6 +55,7 @@ const PARAMETERS = {
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
     starveDeathChance: 0.5,   // per-tick death chance for an unfed agent
+    catastropheChance: 0.001, // per-tick chance an entire village is wiped out
     pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
     pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)
@@ -100,6 +101,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
     PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
     PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
+    PARAMETERS.catastropheChance  = parseFloat(document.getElementById("catastropheChance").value);
     PARAMETERS.fissionSize        = parseFloat(document.getElementById("fissionSize").value);
     PARAMETERS.fissionMaxFraction = parseFloat(document.getElementById("fissionMaxFraction").value);
     PARAMETERS.randomizeGenes      = document.getElementById("randomizeGenes").checked;
@@ -139,6 +141,7 @@ const saveParametersToUI = () => {
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
+    document.getElementById("catastropheChance").value  = PARAMETERS.catastropheChance;
     document.getElementById("fissionSize").value        = PARAMETERS.fissionSize;
     document.getElementById("fissionMaxFraction").value = PARAMETERS.fissionMaxFraction;
     document.getElementById("randomizeGenes").checked   = PARAMETERS.randomizeGenes;

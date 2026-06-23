@@ -55,6 +55,7 @@ class World {
         const vs = this.villages();
         vs.forEach(v => v.step());
         vs.forEach(v => this.reproduceOrFission(v));
+        this.applyCatastrophes();
         this.cullEmpty();
         this.migrate();
         this.cullEmpty();
@@ -67,6 +68,15 @@ class World {
         for (let r = 0; r < this.rows; r++)
             for (let c = 0; c < this.cols; c++)
                 if (this.grid[r][c] && this.grid[r][c].pop === 0) this.grid[r][c] = null;
+    }
+
+    /** Each village has a small per-tick chance of being wiped out entirely. */
+    applyCatastrophes() {
+        const p = PARAMETERS.catastropheChance;
+        if (p <= 0) return;
+        for (let r = 0; r < this.rows; r++)
+            for (let c = 0; c < this.cols; c++)
+                if (this.grid[r][c] && Math.random() < p) this.grid[r][c] = null;
     }
 
     /** Spend growth points: birth below cap, fission at/above cap. */
