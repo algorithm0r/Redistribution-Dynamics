@@ -8,6 +8,12 @@ const GENE_INFO = {
     coop:   "coop  pay in when asked?  (0 always defect -> 1 always comply)",
 };
 
+/** Short gene labels for the (narrow) histograms. */
+const GENE_SHORT = {
+    tau: "tau (tax rate)", theta: "theta (who pays)", phi: "phi (who gets it)",
+    kappa: "kappa (chief cut)", lambda: "lambda (punish)", coop: "coop (comply)",
+};
+
 /**
  * Model V — the grid world. A 10x10 grid of cells, each empty or holding a
  * Village. Each tick: villages run their economy; then reproduction (birth below
@@ -142,7 +148,7 @@ class World {
         // Cache each village's enacted policy once per tick (misfit needs it);
         // migrationDest would otherwise recompute the 5 medians for every agent.
         const villages = this.villages();
-        if (PARAMETERS.pMigrateMisfit > 0) villages.forEach(v => v.cachedPolicy = v.enactedPolicy());
+        if (PARAMETERS.pMigrateMisfit > 0) villages.forEach(v => v.cachedPolicy = v.policy || v.enactedPolicy());
 
         // Collect moves from the pre-migration state, then apply atomically.
         const moves = [];
@@ -199,7 +205,7 @@ class World {
         for (const [r, c] of this.neighbors(v.row, v.col)) {
             const n = this.grid[r][c];
             // empty cell = perfect fit (0); use the cached policy for occupied cells
-            const d = n ? policyDistance(a, n.cachedPolicy || (n.cachedPolicy = n.enactedPolicy())) : 0;
+            const d = n ? policyDistance(a, n.cachedPolicy || n.policy || (n.cachedPolicy = n.enactedPolicy())) : 0;
             if (d < bestD) { bestD = d; best = [r, c]; }
         }
         return best;
@@ -220,25 +226,46 @@ class WorldDataManager {
         this.popSeries = [];
         this.villageSeries = [];
 
-        // Per gene: mean over time, and a 20-bucket value distribution over time.
+        // Per gene, over time: mean + 20-bucket distribution, at BOTH the agent
+        // level (every individual) and the village level (each village's median).
         this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop'];
-        this.geneMean = {};
-        this.geneHist = {};
-        this.geneNames.forEach(g => { this.geneMean[g] = []; this.geneHist[g] = []; });
+        this.geneMean = {}; this.geneHist = {};
+        this.geneVillageMean = {}; this.geneVillageHist = {};
+        this.geneNames.forEach(g => {
+            this.geneMean[g] = []; this.geneHist[g] = [];
+            this.geneVillageMean[g] = []; this.geneVillageHist[g] = [];
+        });
     }
 
     record() {
-        const agents = this.world.villages().flatMap(v => v.agents);
-        const n = agents.length;
+        const villages = this.world.villages();
+        const agents = villages.flatMap(v => v.agents);
+        const n = agents.length, nv = villages.length;
         this.popSeries.push(n);
-        this.villageSeries.push(this.world.villages().length);
+        this.villageSeries.push(nv);
+
+        // Each village's per-gene value, computed once: reuse the tick's cached
+        // policy for the 5 voted genes; coop is medianed here (it isn't voted).
+        const villageVals = villages.map(v => {
+            const pol = v.policy || genePolicy(v.agents);
+            return { tau: pol.tau, theta: pol.theta, phi: pol.phi, kappa: pol.kappa,
+                     lambda: pol.lambda, coop: median(v.agents.map(a => a.coop)) };
+        });
 
         this.geneNames.forEach(g => {
+            // Agent-level distribution across every individual.
             const counts = new Array(20).fill(0);
             let sum = 0;
             agents.forEach(a => { sum += a[g]; counts[Math.min(19, Math.floor(a[g] * 20))]++; });
             this.geneMean[g].push(n ? sum / n : 0);
             this.geneHist[g].push(counts);
+
+            // Village-level distribution from the precomputed village values.
+            const vcounts = new Array(20).fill(0);
+            let vsum = 0;
+            villageVals.forEach(vv => { vsum += vv[g]; vcounts[Math.min(19, Math.floor(vv[g] * 20))]++; });
+            this.geneVillageMean[g].push(nv ? vsum / nv : 0);
+            this.geneVillageHist[g].push(vcounts);
         });
     }
 
@@ -261,6 +288,8 @@ class WorldDataManager {
                 villages: this.villageSeries,
                 geneMeans: this.geneMean,
                 geneHistograms: this.geneHist,
+                geneVillageMeans: this.geneVillageMean,
+                geneVillageHistograms: this.geneVillageHist,
             },
         };
         if (typeof socket !== "undefined" && socket) {
@@ -282,12 +311,19 @@ class WorldObserver {
             new Graph(gx, 36, gw, 70, [dm.popSeries], "Total population", 0, 0, true),
         ];
 
-        // One value-distribution heat-strip per gene (low at bottom, high at top),
-        // with the gene's mean traced as a white line on top.
-        const hy = 150, hstep = 185, hh = 150;
-        this.geneHistograms = dm.geneNames.map((g, i) =>
-            new Histogram(gx, hy + i * hstep, dm.geneHist[g],
-                { label: GENE_INFO[g], width: gw, height: hh, means: dm.geneMean[g] }));
+        // Two columns of value-distribution heat-strips per gene (low at bottom,
+        // high at top), the gene's mean traced as a white line: left = the agent
+        // distribution, right = the village distribution (each village's vote).
+        const colW = 292, gap = 16, xA = gx, xB = gx + colW + gap;
+        const hy = 150, hstep = 190, hh = 160;
+        this.geneHistograms = [];
+        dm.geneNames.forEach((g, i) => {
+            const y = hy + i * hstep;
+            this.geneHistograms.push(new Histogram(xA, y, dm.geneHist[g],
+                { label: GENE_SHORT[g] + " - agents", width: colW, height: hh, means: dm.geneMean[g] }));
+            this.geneHistograms.push(new Histogram(xB, y, dm.geneVillageHist[g],
+                { label: GENE_SHORT[g] + " - villages", width: colW, height: hh, means: dm.geneVillageMean[g] }));
+        });
     }
 
     update() {}
@@ -340,7 +376,8 @@ class WorldObserver {
                 } else if (villagerView) {
                     this.drawVillagers(ctx, v, x, y, cell - 2, meanStock, levels);
                 } else {
-                    const hue = Math.round(120 * v.enactedPolicy()[gene]);   // red = 0, green = 1
+                    const pol = v.policy || v.enactedPolicy();
+                    const hue = Math.round(120 * pol[gene]);   // red = 0, green = 1
                     const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
                     ctx.fillStyle = hsl(hue, 75, light);
                     ctx.fillRect(x, y, cell - 2, cell - 2);

@@ -4,6 +4,19 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Village-level gene histograms + cached policy (kill redundant medians).**
+  For each gene, also histogram the *village* value (each village's voted median)
+  alongside the agent distribution — shown as a second column of heat-strips
+  (agents | villages). While adding it, fixed a real redundancy: the enacted
+  policy (5 gene medians) was recomputed in `applyGenomePolicy` every tick, again
+  per cell every frame in `draw()`, again in migration, and again in `record()`.
+  Now `genePolicy()` is computed once per village per tick in `step()`, cached on
+  `v.policy`, and reused by redistribution, drawing, migration, and data
+  collection. (coop isn't voted, so its village median is still computed at
+  sample time only.)
+- **Fixed shared wealth scale for the villager display.** Absolute 0 → 2× global
+  average, quantized into `wealthLevels` bands (default 10), cross-village
+  comparable.
 - **Exposed grid size, sample rate, updates-per-draw to the UI; new death-rate
   defaults.** Added controls for grid size (N×N → gridRows/gridCols), data sample
   rate (`reportingPeriod`, default 100), and updates per draw (`updatesPerDraw`,

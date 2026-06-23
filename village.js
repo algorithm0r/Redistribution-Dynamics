@@ -7,17 +7,25 @@
  * dynamics (reproduction, fission, extinction, migration) live in World.
  */
 
+/** The enacted policy = per-gene median of the population (Model V voting). */
+function genePolicy(agents) {
+    if (agents.length === 0) return { tau: 0, theta: 0, phi: 0, kappa: 0, lambda: 0 };
+    return {
+        tau: median(agents.map(a => a.tau)),
+        theta: median(agents.map(a => a.theta)),
+        phi: median(agents.map(a => a.phi)),
+        kappa: median(agents.map(a => a.kappa)),
+        lambda: median(agents.map(a => a.lambda)),
+    };
+}
+
 /** Apply the genome-encoded redistribution policy to one population, in place.
- *  Enacted policy = per-gene median (Model V voting). Integer throughout. */
-function applyGenomePolicy(agents) {
+ *  Pass a precomputed `policy` to avoid recomputing the medians. Integer throughout. */
+function applyGenomePolicy(agents, policy) {
     const N = agents.length;
     if (N === 0) return;
 
-    const tau    = median(agents.map(a => a.tau));
-    const theta  = median(agents.map(a => a.theta));
-    const phi    = median(agents.map(a => a.phi));
-    const kappa  = median(agents.map(a => a.kappa));
-    const lambda = median(agents.map(a => a.lambda));
+    const { tau, theta, phi, kappa, lambda } = policy || genePolicy(agents);
 
     // Collect on a progressive bracket; cooperators pay, defectors withhold and
     // may be punished (their due destroyed).
@@ -102,21 +110,16 @@ class Village {
 
     /** The enacted policy = per-gene median of the residents (Model V vote). */
     enactedPolicy() {
-        const a = this.agents;
-        if (a.length === 0) return { tau: 0, theta: 0, phi: 0, kappa: 0, lambda: 0 };
-        return {
-            tau: median(a.map(x => x.tau)),
-            theta: median(a.map(x => x.theta)),
-            phi: median(a.map(x => x.phi)),
-            kappa: median(a.map(x => x.kappa)),
-            lambda: median(a.map(x => x.lambda)),
-        };
+        return genePolicy(this.agents);
     }
 
-    /** One within-village tick: gather -> redistribute -> consume -> score -> die. */
+    /** One within-village tick: gather -> redistribute -> consume -> score -> die.
+     *  The enacted policy is computed once here and cached on `this.policy` for
+     *  reuse by drawing, migration, and data collection this tick. */
     step() {
         this.agents.forEach(a => a.gather());
-        applyGenomePolicy(this.agents);
+        this.policy = genePolicy(this.agents);
+        applyGenomePolicy(this.agents, this.policy);
         this.agents.forEach(a => a.consume());
 
         // +1 growth point per needs-met (un-starved) villager this tick.
