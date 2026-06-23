@@ -59,6 +59,7 @@ const PARAMETERS = {
     pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
     pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)
+    gridColorGene: "tau",     // which gene paints the grid (red 0 -> green 1)
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
@@ -108,6 +109,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.pMigrateRandom     = parseFloat(document.getElementById("pMigrateRandom").value);
     PARAMETERS.pMigrateMisfit     = parseFloat(document.getElementById("pMigrateMisfit").value);
     PARAMETERS.pMigrateStarve     = parseFloat(document.getElementById("pMigrateStarve").value);
+    PARAMETERS.gridColorGene      = document.getElementById("gridColorGene").value;
 
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
@@ -148,6 +150,7 @@ const saveParametersToUI = () => {
     document.getElementById("pMigrateRandom").value     = PARAMETERS.pMigrateRandom;
     document.getElementById("pMigrateMisfit").value     = PARAMETERS.pMigrateMisfit;
     document.getElementById("pMigrateStarve").value     = PARAMETERS.pMigrateStarve;
+    document.getElementById("gridColorGene").value      = PARAMETERS.gridColorGene;
 
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;

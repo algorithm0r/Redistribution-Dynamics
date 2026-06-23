@@ -1,3 +1,13 @@
+/** Human-readable description of what each gene controls (0 -> 1). */
+const GENE_INFO = {
+    tau:    "tau  tax rate  (0 none -> 1 take all)",
+    theta:  "theta  who pays  (0 everyone -> 1 only the rich)",
+    phi:    "phi  who receives  (0 all equally -> 1 neediest first)",
+    kappa:  "kappa  chief's cut  (0 none -> 1 all to the hub)",
+    lambda: "lambda  punish defectors  (0 never -> 1 always destroy)",
+    coop:   "coop  pay in when asked?  (0 always defect -> 1 always comply)",
+};
+
 /**
  * Model V — the grid world. A 10x10 grid of cells, each empty or holding a
  * Village. Each tick: villages run their economy; then reproduction (birth below
@@ -274,21 +284,44 @@ class WorldObserver {
 
         // One value-distribution heat-strip per gene (low at bottom, high at top),
         // with the gene's mean traced as a white line on top.
-        const labels = { tau: 'tau (rate)', theta: 'theta (progressivity)', phi: 'phi (focus)',
-                         kappa: 'kappa (hub)', lambda: 'lambda (punish)', coop: 'coop (compliance)' };
         const hy = 150, hstep = 185, hh = 150;
         this.geneHistograms = dm.geneNames.map((g, i) =>
             new Histogram(gx, hy + i * hstep, dm.geneHist[g],
-                { label: labels[g], width: gw, height: hh, means: dm.geneMean[g] }));
+                { label: GENE_INFO[g], width: gw, height: hh, means: dm.geneMean[g] }));
     }
 
     update() {}
 
     draw(ctx) {
         const w = this.world;
+        const gene = GENE_INFO[PARAMETERS.gridColorGene] ? PARAMETERS.gridColorGene : 'tau';
         const cell = Math.min(115, Math.floor(1180 / Math.max(w.rows, w.cols)));
-        const x0 = 30, y0 = 105;
+        const x0 = 30, y0 = 130;
 
+        const agents = w.villages().flatMap(v => v.agents);
+        const n = agents.length;
+        const mean = f => (n ? agents.reduce((s, a) => s + f(a), 0) / n : 0);
+
+        // Readout.
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#222";
+        ctx.font = "16px monospace";
+        ctx.fillText(`Model V — tick ${w.tick} / ${PARAMETERS.epoch}`, 30, 30);
+        ctx.fillText(`villages ${w.villages().length}   pop ${n}   ` +
+                     `mean coop ${mean(a => a.coop).toFixed(2)}   tau ${mean(a => a.tau).toFixed(2)}`, 30, 52);
+
+        // Colour legend for the grid: a red->green bar = the chosen gene 0 -> 1.
+        const lx = 30, ly = 66, lw = 200, lh = 14;
+        for (let i = 0; i < lw; i++) {
+            ctx.fillStyle = hsl(Math.round(120 * i / lw), 75, 50);
+            ctx.fillRect(lx + i, ly, 1, lh);
+        }
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
+        ctx.fillStyle = "#222"; ctx.font = "12px monospace";
+        ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
+        ctx.fillText(`brightness = village population (faint = sparse, bold = full)`, lx, ly + lh + 14);
+
+        // Grid.
         for (let r = 0; r < w.rows; r++) {
             for (let c = 0; c < w.cols; c++) {
                 const v = w.grid[r][c];
@@ -296,23 +329,13 @@ class WorldObserver {
                 if (!v) {
                     ctx.fillStyle = "#eeeeee";
                 } else {
-                    const pol = v.enactedPolicy();
-                    const hue = Math.round(120 * pol.tau);           // red = laissez-faire, green = pooling
-                    const light = 88 - 55 * Math.min(1, v.pop / PARAMETERS.cap);
-                    ctx.fillStyle = hsl(hue, 70, light);
+                    const hue = Math.round(120 * v.enactedPolicy()[gene]);   // red = 0, green = 1
+                    const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
+                    ctx.fillStyle = hsl(hue, 75, light);
                 }
                 ctx.fillRect(x, y, cell - 2, cell - 2);
             }
         }
-
-        const agents = w.villages().flatMap(v => v.agents);
-        const n = agents.length;
-        const mean = f => (n ? agents.reduce((s, a) => s + f(a), 0) / n : 0);
-        ctx.fillStyle = "#222";
-        ctx.font = "16px monospace";
-        ctx.fillText(`Model V — tick ${w.tick} / ${PARAMETERS.epoch}`, 30, 36);
-        ctx.fillText(`villages ${w.villages().length}   pop ${n}`, 30, 58);
-        ctx.fillText(`mean coop ${mean(a => a.coop).toFixed(3)}   tau ${mean(a => a.tau).toFixed(3)}   phi ${mean(a => a.phi).toFixed(3)}`, 30, 80);
 
         this.graphs.forEach(g => g.draw(ctx));
         this.geneHistograms.forEach(h => h.draw(ctx));
