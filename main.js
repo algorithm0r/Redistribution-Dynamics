@@ -64,9 +64,13 @@ function loadNextRunParameters() {
 ASSET_MANAGER.downloadAll(() => {
     setupTabs();
 
-    // updatesPerDraw is a pure speed control — apply it live (no reset needed).
+    // Pure display/speed controls — apply live (no reset needed).
     const upd = document.getElementById("updatesPerDraw");
     if (upd) upd.oninput = () => { PARAMETERS.updatesPerDraw = Math.max(1, parseInt(upd.value) || 1); };
+    const dmode = document.getElementById("displayMode");
+    if (dmode) dmode.onchange = () => { PARAMETERS.displayMode = dmode.value; };
+    const gcg = document.getElementById("gridColorGene");
+    if (gcg) gcg.onchange = () => { PARAMETERS.gridColorGene = gcg.value; };
 
     const resetButton = document.getElementById("resetButton");
     if (resetButton) resetButton.onclick = () => { loadParametersFromUI(); startRun(); };

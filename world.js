@@ -318,8 +318,14 @@ class WorldObserver {
         }
         ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
         ctx.fillStyle = "#222"; ctx.font = "12px monospace";
-        ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
-        ctx.fillText(`brightness = village population (faint = sparse, bold = full)`, lx, ly + lh + 14);
+        const villagerView = PARAMETERS.displayMode === 'villagers';
+        if (villagerView) {
+            ctx.fillText(`each cell = its villagers; colour = wealth vs the richest in that village`, lx + lw + 12, ly + 8);
+            ctx.fillText(`(red = poorest -> green = richest; more boxes = bigger village)`, lx, ly + lh + 14);
+        } else {
+            ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
+            ctx.fillText(`brightness = village population (faint = sparse, bold = full)`, lx, ly + lh + 14);
+        }
 
         // Grid.
         for (let r = 0; r < w.rows; r++) {
@@ -328,17 +334,37 @@ class WorldObserver {
                 const x = x0 + c * cell, y = y0 + r * cell;
                 if (!v) {
                     ctx.fillStyle = "#eeeeee";
+                    ctx.fillRect(x, y, cell - 2, cell - 2);
+                } else if (villagerView) {
+                    this.drawVillagers(ctx, v, x, y, cell - 2);
                 } else {
                     const hue = Math.round(120 * v.enactedPolicy()[gene]);   // red = 0, green = 1
                     const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
                     ctx.fillStyle = hsl(hue, 75, light);
+                    ctx.fillRect(x, y, cell - 2, cell - 2);
                 }
-                ctx.fillRect(x, y, cell - 2, cell - 2);
             }
         }
 
         this.graphs.forEach(g => g.draw(ctx));
         this.geneHistograms.forEach(h => h.draw(ctx));
+    }
+
+    /** Render one cell as a sub-grid of villagers, coloured by wealth relative to
+     *  the richest villager (red poor -> green rich). Box count shows population. */
+    drawVillagers(ctx, v, x, y, size) {
+        const k = v.pop;
+        const maxStock = v.agents.reduce((m, a) => Math.max(m, a.stock), 1);
+        const side = Math.ceil(Math.sqrt(k));
+        const sub = size / side;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x, y, size, size);
+        for (let i = 0; i < k; i++) {
+            const sr = Math.floor(i / side), sc = i % side;
+            const frac = v.agents[i].stock / maxStock;
+            ctx.fillStyle = hsl(Math.round(120 * frac), 75, 50);
+            ctx.fillRect(x + sc * sub, y + sr * sub, sub - 0.5, sub - 0.5);
+        }
     }
 }
 
