@@ -71,6 +71,8 @@ ASSET_MANAGER.downloadAll(() => {
     if (dmode) dmode.onchange = () => { PARAMETERS.displayMode = dmode.value; };
     const gcg = document.getElementById("gridColorGene");
     if (gcg) gcg.onchange = () => { PARAMETERS.gridColorGene = gcg.value; };
+    const wl = document.getElementById("wealthLevels");
+    if (wl) wl.oninput = () => { PARAMETERS.wealthLevels = Math.max(2, parseInt(wl.value) || 10); };
 
     const resetButton = document.getElementById("resetButton");
     if (resetButton) resetButton.onclick = () => { loadParametersFromUI(); startRun(); };

@@ -301,6 +301,8 @@ class WorldObserver {
         const agents = w.villages().flatMap(v => v.agents);
         const n = agents.length;
         const mean = f => (n ? agents.reduce((s, a) => s + f(a), 0) / n : 0);
+        const meanStock = mean(a => a.stock);
+        const levels = Math.max(2, PARAMETERS.wealthLevels || 10);
 
         // Readout.
         ctx.textAlign = "left";
@@ -320,8 +322,8 @@ class WorldObserver {
         ctx.fillStyle = "#222"; ctx.font = "12px monospace";
         const villagerView = PARAMETERS.displayMode === 'villagers';
         if (villagerView) {
-            ctx.fillText(`each cell = its villagers; colour = wealth vs the richest in that village`, lx + lw + 12, ly + 8);
-            ctx.fillText(`(red = poorest -> green = richest; more boxes = bigger village)`, lx, ly + lh + 14);
+            ctx.fillText(`each cell = its villagers; colour = absolute wealth on one shared scale`, lx + lw + 12, ly + 8);
+            ctx.fillText(`(red = 0  ·  middle = global average  ·  green = >= 2x average; same colour = same wealth anywhere)`, lx, ly + lh + 14);
         } else {
             ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
             ctx.fillText(`brightness = village population (faint = sparse, bold = full)`, lx, ly + lh + 14);
@@ -336,7 +338,7 @@ class WorldObserver {
                     ctx.fillStyle = "#eeeeee";
                     ctx.fillRect(x, y, cell - 2, cell - 2);
                 } else if (villagerView) {
-                    this.drawVillagers(ctx, v, x, y, cell - 2);
+                    this.drawVillagers(ctx, v, x, y, cell - 2, meanStock, levels);
                 } else {
                     const hue = Math.round(120 * v.enactedPolicy()[gene]);   // red = 0, green = 1
                     const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
@@ -350,19 +352,21 @@ class WorldObserver {
         this.geneHistograms.forEach(h => h.draw(ctx));
     }
 
-    /** Render one cell as a sub-grid of villagers, coloured by wealth relative to
-     *  the richest villager (red poor -> green rich). Box count shows population. */
-    drawVillagers(ctx, v, x, y, size) {
+    /** Render one cell as a sub-grid of villagers, coloured by ABSOLUTE wealth on a
+     *  scale shared across all villages: 0 -> 2x the global average, quantized into
+     *  `levels` discrete bands. Same colour = same wealth in any cell. Box count
+     *  shows population. */
+    drawVillagers(ctx, v, x, y, size, meanStock, levels) {
         const k = v.pop;
-        const maxStock = v.agents.reduce((m, a) => Math.max(m, a.stock), 1);
         const side = Math.ceil(Math.sqrt(k));
         const sub = size / side;
+        const band = meanStock > 0 ? (2 * meanStock / levels) : 1;
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(x, y, size, size);
         for (let i = 0; i < k; i++) {
             const sr = Math.floor(i / side), sc = i % side;
-            const frac = v.agents[i].stock / maxStock;
-            ctx.fillStyle = hsl(Math.round(120 * frac), 75, 50);
+            const level = Math.min(levels - 1, Math.floor(v.agents[i].stock / band));
+            ctx.fillStyle = hsl(Math.round(120 * level / (levels - 1)), 75, 50);
             ctx.fillRect(x + sc * sub, y + sr * sub, sub - 0.5, sub - 0.5);
         }
     }

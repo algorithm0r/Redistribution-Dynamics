@@ -60,7 +60,8 @@ const PARAMETERS = {
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
     pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)
     gridColorGene: "tau",     // which gene paints the grid (red 0 -> green 1)
-    displayMode: "policy",    // 'policy' (gene colour) or 'villagers' (within-village wealth)
+    displayMode: "policy",    // 'policy' (gene colour) or 'villagers' (absolute wealth)
+    wealthLevels: 10,         // discrete colour bands for the villager-wealth display
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
@@ -112,6 +113,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.pMigrateStarve     = parseFloat(document.getElementById("pMigrateStarve").value);
     PARAMETERS.gridColorGene      = document.getElementById("gridColorGene").value;
     PARAMETERS.displayMode        = document.getElementById("displayMode").value;
+    PARAMETERS.wealthLevels       = parseInt(document.getElementById("wealthLevels").value);
 
     PARAMETERS.runName = "Run From Controls";
     const runNameEl = document.getElementById("runName");
@@ -154,6 +156,7 @@ const saveParametersToUI = () => {
     document.getElementById("pMigrateStarve").value     = PARAMETERS.pMigrateStarve;
     document.getElementById("gridColorGene").value      = PARAMETERS.gridColorGene;
     document.getElementById("displayMode").value        = PARAMETERS.displayMode;
+    document.getElementById("wealthLevels").value       = PARAMETERS.wealthLevels;
 
     const runNameEl = document.getElementById("runName");
     if (runNameEl) runNameEl.innerText = PARAMETERS.runName;
