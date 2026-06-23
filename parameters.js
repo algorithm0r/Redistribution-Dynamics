@@ -72,7 +72,7 @@ const PARAMETERS = {
 
     db: "redistribution_dynamics",
     collection: "stage1",
-    ip: "https://73.19.38.112:8888",   // shared socket.io -> MongoDB server (../Server)
+    ip: "https://research.climbinggiants.com:8888",   // shared socket.io -> MongoDB server (../Server)
 };
 
 /** Pull parameters from the control-panel inputs into PARAMETERS. */
