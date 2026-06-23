@@ -64,6 +64,10 @@ function loadNextRunParameters() {
 ASSET_MANAGER.downloadAll(() => {
     setupTabs();
 
+    // updatesPerDraw is a pure speed control — apply it live (no reset needed).
+    const upd = document.getElementById("updatesPerDraw");
+    if (upd) upd.oninput = () => { PARAMETERS.updatesPerDraw = Math.max(1, parseInt(upd.value) || 1); };
+
     const resetButton = document.getElementById("resetButton");
     if (resetButton) resetButton.onclick = () => { loadParametersFromUI(); startRun(); };
 
