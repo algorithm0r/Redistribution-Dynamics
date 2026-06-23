@@ -1,5 +1,7 @@
 # Redistribution Dynamics
 
+**Live demo:** https://algorithm0r.github.io/Redistribution-Dynamics/
+
 An agent-based simulation of how scarcity and luck produce inequality — and how
 different **redistribution regimes** reshape it. Agents gather and consume a
 resource each tick; stochastic shortfalls leave some lucky and some hungry. The
