@@ -40,13 +40,15 @@ class World {
         return out;
     }
 
+    /** Four neighbours on a torus (edges wrap around). */
     neighbors(r, c) {
-        const out = [];
-        if (r > 0) out.push([r - 1, c]);
-        if (r < this.rows - 1) out.push([r + 1, c]);
-        if (c > 0) out.push([r, c - 1]);
-        if (c < this.cols - 1) out.push([r, c + 1]);
-        return out;
+        const R = this.rows, C = this.cols;
+        return [
+            [(r - 1 + R) % R, c],
+            [(r + 1) % R, c],
+            [r, (c - 1 + C) % C],
+            [r, (c + 1) % C],
+        ];
     }
 
     update() {
@@ -264,7 +266,7 @@ class WorldObserver {
         // with the gene's mean traced as a white line on top.
         const labels = { tau: 'tau (rate)', theta: 'theta (progressivity)', phi: 'phi (focus)',
                          kappa: 'kappa (hub)', lambda: 'lambda (punish)', coop: 'coop (compliance)' };
-        const hy = 150, hstep = 135, hh = 112;
+        const hy = 150, hstep = 185, hh = 150;
         this.geneHistograms = dm.geneNames.map((g, i) =>
             new Histogram(gx, hy + i * hstep, dm.geneHist[g],
                 { label: labels[g], width: gw, height: hh, means: dm.geneMean[g] }));
@@ -274,7 +276,7 @@ class WorldObserver {
 
     draw(ctx) {
         const w = this.world;
-        const cell = Math.min(82, Math.floor(1180 / Math.max(w.rows, w.cols)));
+        const cell = Math.min(115, Math.floor(1180 / Math.max(w.rows, w.cols)));
         const x0 = 30, y0 = 105;
 
         for (let r = 0; r < w.rows; r++) {
