@@ -40,7 +40,7 @@ const PARAMETERS = {
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.
     evolveTraits: false,
     mutationStdev: 0.02,      // std dev of the Gaussian trait mutation
-    deathChance: 0.001,       // per-tick random (trait-independent) death chance
+    deathChance: 0.01,        // per-tick random (trait-independent) death chance
     coupleTraits: false,      // tie pNoGather == pNoConsume as one gene (drift 0)
 
     // Model V — grid of villages (spatial group selection; see DEVPLAN.md).
@@ -54,7 +54,7 @@ const PARAMETERS = {
     birthThreshold: 50,       // growth points (needs-met villager-ticks) per new villager
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
-    starveDeathChance: 0.1,   // per-tick death chance for an unfed agent
+    starveDeathChance: 0.5,   // per-tick death chance for an unfed agent
     pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
     pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)
@@ -63,7 +63,7 @@ const PARAMETERS = {
 
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)
-    reportingPeriod: 10,      // record statistics every N ticks
+    reportingPeriod: 100,     // record statistics every N ticks
     epoch: 10000,             // ticks per run before data is sent and the run ends
 
     db: "redistribution_dynamics",
@@ -90,8 +90,13 @@ const loadParametersFromUI = () => {
     PARAMETERS.deathChance   = parseFloat(document.getElementById("deathChance").value);
     PARAMETERS.coupleTraits  = document.getElementById("coupleTraits").checked;
     PARAMETERS.epoch         = parseInt(document.getElementById("epoch").value);
+    PARAMETERS.reportingPeriod = parseInt(document.getElementById("reportingPeriod").value);
+    PARAMETERS.updatesPerDraw  = parseInt(document.getElementById("updatesPerDraw").value);
 
     PARAMETERS.spatial            = document.getElementById("spatial").checked;
+    const gridSize                = parseInt(document.getElementById("gridSize").value);
+    PARAMETERS.gridRows = gridSize;
+    PARAMETERS.gridCols = gridSize;
     PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
     PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
     PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
@@ -126,8 +131,11 @@ const saveParametersToUI = () => {
     document.getElementById("deathChance").value   = PARAMETERS.deathChance;
     document.getElementById("coupleTraits").checked = PARAMETERS.coupleTraits;
     document.getElementById("epoch").value         = PARAMETERS.epoch;
+    document.getElementById("reportingPeriod").value = PARAMETERS.reportingPeriod;
+    document.getElementById("updatesPerDraw").value  = PARAMETERS.updatesPerDraw;
 
     if (typeof selectModel === "function") selectModel(PARAMETERS.spatial);
+    document.getElementById("gridSize").value           = PARAMETERS.gridRows;
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;

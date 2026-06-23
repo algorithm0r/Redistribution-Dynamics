@@ -4,6 +4,10 @@ Newest entries at the top.
 
 ## 2026-06-22
 
+- **Exposed grid size, sample rate, updates-per-draw to the UI; new death-rate
+  defaults.** Added controls for grid size (N×N → gridRows/gridCols), data sample
+  rate (`reportingPeriod`, default 100), and updates per draw (`updatesPerDraw`,
+  1). Defaults changed: `starveDeathChance` 0.1 → 0.5, `deathChance` 0.001 → 0.01.
 - **Histogram polish, FPS readout, migration perf fix.** Fixed `Histogram.fill`
   to tile rows over the full height (was `floor(height/20)`, leaving ~17% blank
   at the bottom). Histograms now overlay each gene's mean as a white line; dropped
