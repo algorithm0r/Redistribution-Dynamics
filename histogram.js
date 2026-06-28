@@ -26,6 +26,7 @@ class Histogram {
             const snapshot = this.data[i + start];
             const nb = snapshot.length;
             const total = snapshot.reduce((acc, x) => acc + x, 0);
+            if (total === 0) continue;   // empty group this snapshot — leave the column blank
             for (let j = 0; j < nb; j++) {
                 this.fill(snapshot[j] / total, i, nb - 1 - j, nb);
             }
@@ -65,7 +66,7 @@ class Histogram {
         }
 
         this.ctx.font = '10px Arial';
-        this.ctx.fillStyle = "#000000";
+        this.ctx.fillStyle = this.labelColor || "#000000";
         this.ctx.textAlign = "center";
         this.ctx.fillText(this.label, this.x + this.width / 2, this.y + this.height + 10);
 

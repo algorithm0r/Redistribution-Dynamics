@@ -4,6 +4,17 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Coop-tercile SUB-histograms (full distributions per group).** Reworked the
+  gene panel into a 5-column-per-gene grid: `all | defectors | middlers |
+  cooperators | villages`, each a heat-strip with its white mean line; the `all`
+  column also keeps the three coloured tercile mean-lines. The three middle columns
+  are the gene's full 20-bucket distribution within each coop tercile, so a gene
+  correlated with cooperation shows its heat shifting up from the defector to the
+  cooperator column. Made the strips shorter/narrower (hh 160→128, two cols→five) to
+  fit; `geneCoopHist` recorded + shipped (`geneCoopHistograms`). `Histogram` gained
+  `labelColor` and skips empty (total=0) snapshots. Probe: the three terciles
+  exactly partition the overall agent histogram (bucket-wise sum matches), and τ is
+  visibly multimodal within each group (structure the mean alone hid).
 - **Coop-tercile gene breakdown on the histograms.** Each record, living agents are
   split by coop rank into thirds (lo=defectors, mid, hi=cooperators); for every gene
   the mean within each third is tracked (`geneCoopMean`, shipped in the packet).

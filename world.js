@@ -281,10 +281,14 @@ class WorldDataManager {
             this.geneVillageMean[g] = []; this.geneVillageHist[g] = [];
         });
 
-        // Per gene, the mean within each coop tercile (lo=defectors, mid, hi=cooperators)
-        // over time — exposes genes that correlate with cooperation.
-        this.geneCoopMean = {};
-        this.geneNames.forEach(g => { this.geneCoopMean[g] = { lo: [], mid: [], hi: [] }; });
+        // Per gene, within each coop tercile (lo=defectors, mid, hi=cooperators) over
+        // time: the mean and the 20-bucket distribution — exposes genes that correlate
+        // with cooperation, and the within-group spread.
+        this.geneCoopMean = {}; this.geneCoopHist = {};
+        this.geneNames.forEach(g => {
+            this.geneCoopMean[g] = { lo: [], mid: [], hi: [] };
+            this.geneCoopHist[g] = { lo: [], mid: [], hi: [] };
+        });
     }
 
     record() {
@@ -331,10 +335,14 @@ class WorldDataManager {
         const t1 = Math.floor(n / 3), t2 = Math.floor(2 * n / 3);
         const groups = { lo: byCoop.slice(0, t1), mid: byCoop.slice(t1, t2), hi: byCoop.slice(t2) };
         this.geneNames.forEach(g => {
-            const gm = this.geneCoopMean[g];
+            const gm = this.geneCoopMean[g], gh = this.geneCoopHist[g];
             for (const k of ['lo', 'mid', 'hi']) {
                 const grp = groups[k];
-                gm[k].push(grp.length ? grp.reduce((s, a) => s + a[g], 0) / grp.length : NaN);
+                const counts = new Array(20).fill(0);
+                let s = 0;
+                grp.forEach(a => { s += a[g]; counts[Math.min(19, Math.floor(a[g] * 20))]++; });
+                gm[k].push(grp.length ? s / grp.length : NaN);
+                gh[k].push(counts);
             }
         });
     }
@@ -362,6 +370,7 @@ class WorldDataManager {
                 geneVillageMeans: this.geneVillageMean,
                 geneVillageHistograms: this.geneVillageHist,
                 geneCoopMeans: this.geneCoopMean,
+                geneCoopHistograms: this.geneCoopHist,
             },
         };
         if (typeof socket !== "undefined" && socket) {
@@ -386,25 +395,45 @@ class WorldObserver {
                       "Migr/period: starve·misfit·random", 0, 0, true),
         ];
 
-        // Two columns of value-distribution heat-strips per gene (low at bottom,
-        // high at top), the gene's mean traced as a white line: left = the agent
-        // distribution, right = the village distribution (each village's vote).
-        const hy = 150, hstep = 190, hh = 160;
-        // Coop-tercile overlay colours on the agent histograms: defectors / mid / cooperators.
-        const COOP_COLORS = { lo: "#ff4d4d", mid: "#ffd400", hi: "#46e646" };
+        // Per gene, a row of value-distribution heat-strips (low at bottom, high at
+        // top), each with its mean traced as a white line. Five columns:
+        //   all agents | defectors | middlers | cooperators | villages
+        // The three middle columns are the gene's distribution within each coop
+        // tercile, so a gene that correlates with cooperation shows its heat (and
+        // mean line) shifting up from the defector column to the cooperator column.
+        const hy = 150, hstep = 158, hh = 128;
+        const ncol = 5, cgap = 6, hx0 = 1350;
+        const cW = Math.floor((1994 - hx0 - (ncol - 1) * cgap) / ncol);
+        const cols = [
+            { key: 'all',  tag: 'all',  color: "#000000" },
+            { key: 'lo',   tag: 'def',  color: "#cc2222" },
+            { key: 'mid',  tag: 'mid',  color: "#9a7a00" },
+            { key: 'hi',   tag: 'coop', color: "#1f9e1f" },
+            { key: 'vil',  tag: 'vil',  color: "#000000" },
+        ];
+        const COOP_LINE = { lo: "#ff4d4d", mid: "#ffd400", hi: "#46e646" };
         this.geneHistograms = [];
         dm.geneNames.forEach((g, i) => {
             const y = hy + i * hstep;
-            const cm = dm.geneCoopMean[g];
-            this.geneHistograms.push(new Histogram(xA, y, dm.geneHist[g],
-                { label: GENE_SHORT[g] + " - agents (lines: coop terciles)", width: colW, height: hh,
-                  overlays: [
-                      { values: cm.lo,  color: COOP_COLORS.lo },
-                      { values: cm.mid, color: COOP_COLORS.mid },
-                      { values: cm.hi,  color: COOP_COLORS.hi },
-                  ] }));
-            this.geneHistograms.push(new Histogram(xB, y, dm.geneVillageHist[g],
-                { label: GENE_SHORT[g] + " - villages", width: colW, height: hh, means: dm.geneVillageMean[g] }));
+            cols.forEach((col, ci) => {
+                const x = hx0 + ci * (cW + cgap);
+                let data, opts = { label: g + ' ' + col.tag, labelColor: col.color, width: cW, height: hh };
+                if (col.key === 'all') {
+                    data = dm.geneHist[g];
+                    opts.overlays = [
+                        { values: dm.geneCoopMean[g].lo,  color: COOP_LINE.lo },
+                        { values: dm.geneCoopMean[g].mid, color: COOP_LINE.mid },
+                        { values: dm.geneCoopMean[g].hi,  color: COOP_LINE.hi },
+                    ];
+                } else if (col.key === 'vil') {
+                    data = dm.geneVillageHist[g];
+                    opts.means = dm.geneVillageMean[g];
+                } else {
+                    data = dm.geneCoopHist[g][col.key];
+                    opts.means = dm.geneCoopMean[g][col.key];
+                }
+                this.geneHistograms.push(new Histogram(x, y, data, opts));
+            });
         });
     }
 
@@ -487,12 +516,15 @@ class WorldObserver {
 
         this.graphs.forEach(g => g.draw(ctx));
 
-        // Legend for the coop-tercile overlay lines on the agent histograms.
+        // Legend for the per-gene histogram columns (one row per gene).
         ctx.font = "11px monospace"; ctx.textAlign = "left";
-        ctx.fillStyle = "#ff4d4d"; ctx.fillText("— defectors", 1350, 146);
-        ctx.fillStyle = "#d4b000"; ctx.fillText("— middlers", 1448, 146);
-        ctx.fillStyle = "#2faa2f"; ctx.fillText("— cooperators", 1542, 146);
-        ctx.fillStyle = "#222";    ctx.fillText("(coop terciles, mean gene value)", 1660, 146);
+        ctx.fillStyle = "#222";    ctx.fillText("per-gene columns:  all", 1350, 146);
+        ctx.fillStyle = "#cc2222"; ctx.fillText("defectors", 1505, 146);
+        ctx.fillStyle = "#222";    ctx.fillText("·", 1576, 146);
+        ctx.fillStyle = "#9a7a00"; ctx.fillText("middlers", 1586, 146);
+        ctx.fillStyle = "#222";    ctx.fillText("·", 1650, 146);
+        ctx.fillStyle = "#1f9e1f"; ctx.fillText("cooperators", 1660, 146);
+        ctx.fillStyle = "#222";    ctx.fillText("· villages   (coop terciles)", 1748, 146);
 
         this.geneHistograms.forEach(h => h.draw(ctx));
     }
