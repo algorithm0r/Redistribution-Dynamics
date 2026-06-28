@@ -3,24 +3,21 @@
  * top of the defaults for one run; cycled through by the "Start Experiment" /
  * "Next Run" buttons in the browser and by runner.js headlessly.
  *
- * Stage 1: the three automatic regimes, all else at PARAMETERS defaults.
+ * Stage 4 (indbirth_sweep): individual-level fecundity vs the group-based birth
+ * baseline, at the current Model V defaults. epoch 20000, sample every 100.
+ *   - baseline:      no individual birth policies (pure group births).
+ *   - wealth-parent: group birth parent chosen ~ stock (no individual breeding).
+ *   - indbirth-NN:   individual birth threshold swept 1..10 (group births still on).
  */
+const COMMON = { spatial: true, collection: "indbirth_sweep", epoch: 20000, reportingPeriod: 100 };
+
 const runs = [
-    { runName: "none",  regime: "none",  collection: "stage1" },
-    { runName: "share", regime: "share", collection: "stage1" },
-    { runName: "theft", regime: "theft", collection: "stage1" },
-    { runName: "pool",  regime: "pool",  collection: "stage1" },
-
-    // Evolution (Mode 2 seed): same regimes with trait evolution on.
-    { runName: "none-evolve", regime: "none", evolveTraits: true, collection: "stage2" },
-    { runName: "pool-evolve", regime: "pool", evolveTraits: true, collection: "stage2" },
-    { runName: "none-evolve-coupled", regime: "none", evolveTraits: true, coupleTraits: true, collection: "stage2" },
-
-    // Model 2 genome policies as coordinates (within-village mechanic).
-    { runName: "g-pool",     regime: "genome", tau: 1, theta: 0, phi: 0, kappa: 0, lambda: 0, coop: 1, collection: "stage3" },
-    { runName: "g-floor",    regime: "genome", tau: 1, theta: 0.7, phi: 1, kappa: 0, lambda: 0, coop: 1, collection: "stage3" },
-    { runName: "g-chiefdom", regime: "genome", tau: 1, theta: 0, phi: 1, kappa: 0.5, lambda: 0, coop: 1, collection: "stage3" },
-    { runName: "g-welfare",  regime: "genome", tau: 0.5, theta: 0.5, phi: 1, kappa: 0, lambda: 0, coop: 1, collection: "stage3" },
+    { ...COMMON, runName: "baseline",      individualBirthThreshold: 0, wealthProportionalBirth: false },
+    { ...COMMON, runName: "wealth-parent", individualBirthThreshold: 0, wealthProportionalBirth: true },
 ];
+for (let t = 1; t <= 10; t++) {
+    runs.push({ ...COMMON, runName: "indbirth-" + String(t).padStart(2, "0"),
+                individualBirthThreshold: t, wealthProportionalBirth: false });
+}
 
 if (typeof module !== "undefined" && module.exports) module.exports = { runs };
