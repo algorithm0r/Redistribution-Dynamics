@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Redistribution Dynamics — Run Dashboard</title>
+    <style>
+        body { font-family: monospace; margin: 8px; background: #fafafa; color: #222; }
+        #controls { margin-bottom: 6px; }
+        #controls > * { margin-right: 10px; }
+        .db-status { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #ccc; }
+        .db-connected { background: #9d9; }
+        .db-disconnected { background: #e99; }
+        canvas { border: 1px solid #888; background: #fff; }
+        button, select, input { font-family: monospace; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <script src="./util.js"></script>
+    <script src="./parameters.js"></script>
+    <script src="./dashboard.js"></script>
+</head>
+<body>
+    <div id="controls">
+        <span id="db" class="db-status">DB…</span>
+        collection: <input id="collection" value="indbirth_sweep" size="18">
+        <button id="loadRuns">Load Runs</button>
+        run: <select id="runSelect"></select>
+        <button id="query">Query</button>
+        <button id="nextRun">Next Run &#9658;</button>
+        <button id="download">Download CSV</button>
+        <span id="info">—</span>
+    </div>
+    <canvas id="chart" width="2400" height="1300"></canvas>
+</body>
+</html>
