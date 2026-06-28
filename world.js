@@ -382,7 +382,7 @@ class WorldObserver {
             ctx.fillText(`(red = 0  ·  middle = global average  ·  green = >= 2x average; same colour = same wealth anywhere)`, lx, ly + lh + 14);
         } else {
             ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
-            ctx.fillText(`brightness = village population (faint = sparse, bold = full)`, lx, ly + lh + 14);
+            ctx.fillText(`square size = village population (tiny = sparse, fills the cell = at cap)`, lx, ly + lh + 14);
         }
 
         // Grid.
@@ -402,9 +402,15 @@ class WorldObserver {
                         ? median(v.agents.map(a => a.coop))
                         : (v.policy || v.enactedPolicy())[gene];
                     const hue = Math.round(120 * value);   // red = 0, green = 1
-                    const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
-                    ctx.fillStyle = hsl(hue, 75, light);
-                    ctx.fillRect(x, y, cell - 2, cell - 2);
+                    // Square AREA scales with population (full cell = at cap); the
+                    // colour shows the gene at full strength, centred in the cell.
+                    const full = cell - 2;
+                    const size = full * Math.sqrt(Math.min(1, v.pop / PARAMETERS.cap));
+                    const off = (full - size) / 2;
+                    ctx.fillStyle = "#f3f3f3";
+                    ctx.fillRect(x, y, full, full);
+                    ctx.fillStyle = hsl(hue, 75, 50);
+                    ctx.fillRect(x + off, y + off, size, size);
                 }
             }
         }
