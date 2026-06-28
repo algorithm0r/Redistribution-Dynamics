@@ -61,7 +61,7 @@ const PARAMETERS = {
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
     starveDeathChance: 0.1,   // per-tick death chance for an unfed agent
-    catastropheChance: 0.001, // per-tick chance an entire village is wiped out
+    catastropheChance: 0.001, // per-tick wipeout chance PER populated neighbour (isolated village = 0)
     pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
     pMigrateStarve: 0.0,      // migration vector: relocate when unfed (seek food)

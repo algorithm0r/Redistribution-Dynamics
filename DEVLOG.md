@@ -4,6 +4,20 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Catastrophe now scales with crowding.** `applyCatastrophes` wipeout chance is
+  `catastropheChance × (populated neighbours)` instead of flat — an isolated
+  village (0 populated neighbours) is **never** wiped; a fully-surrounded one is
+  4× the parameter. Victims are chosen from the pre-pass state so a wipeout doesn't
+  lower a neighbour's count mid-pass. UI label + param comment updated.
+- **Migration tracking + display.** `World` now tallies migrations by vector,
+  per-tick (`migCount`) and cumulative (`migCum`), incremented in `migrationDest`.
+  Observer shows a live readout line ("migrations this tick — starve/misfit/random
+  + total so far") and a new **Migrations/period** graph beside the population
+  graph (3 series: starve green / misfit red / random cyan). `WorldDataManager`
+  records per-period counts (diffed from cumulative) and ships them in the packet
+  (`migrations`). Probe (8×8, all vectors on): tallies fire and accumulate
+  (random > misfit > starve), per-period sums match cumulative. NOTE: default
+  migration rates are all 0 — nothing migrates until `pMigrate*` is set > 0.
 - **Added `cloneFounders` village-seeding option.** When on, each founding village
   is one founder + its **mutated genetic clones** (via `spawnChild`) instead of
   independently-random villagers. Orthogonal to `randomizeGenes` (which still sets
