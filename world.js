@@ -133,11 +133,10 @@ class World {
             const th = this.birthCost(v);   // recomputed each step: pop changes as it grows
             if (v.growthPoints < th) break;
             if (v.pop < cap) {
-                v.growthPoints -= th;
                 const fed = v.agents.filter(a => !a.starved);
-                const pool = fed.length ? fed : v.agents;
-                if (pool.length === 0) break;
-                v.agents.push(pool[randomInt(pool.length)].spawnChild());
+                if (fed.length === 0) break;   // only needs-met villagers may parent; bank the points
+                v.growthPoints -= th;
+                v.agents.push(fed[randomInt(fed.length)].spawnChild());
             } else {
                 const target = this.fissionTarget(v);
                 if (!target) break;          // nowhere to send a colony; sit at cap

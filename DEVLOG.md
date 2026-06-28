@@ -4,6 +4,14 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Fix: only needs-met (fed) villagers can be a birth parent.** `reproduceOrFission`
+  fell back to the whole village when no agent was fed (`pool = fed.length ? fed :
+  v.agents`), so a fully-starved village could still birth from a starved parent off
+  *banked* growth points (most visible in tiny villages). Now: if nobody's fed,
+  skip the birth and keep the points banked until someone is fed. Contradicted the
+  growth-point logic (points are earned by fed villagers, so the parent should be
+  one). Viability unchanged — defaults still thrive ~3.2k pop on a full grid, so the
+  fallback was a rare edge, not load-bearing.
 - **CORRECTION: the default config does NOT collapse.** The earlier "extinct
   ~t1900" note below was measured with migration OFF (all `pMigrate*` = 0, the
   defaults at that time). Once migration was turned on (random 0.01 / misfit 0.25 /
