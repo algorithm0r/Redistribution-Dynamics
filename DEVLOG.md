@@ -4,6 +4,15 @@ Newest entries at the top.
 
 ## 2026-06-27
 
+- **Tax (τ) now applies to whole wealth, not the marginal excess.** Collection
+  changed from `due = τ·max(0, stock − θ·R)` to: an agent is taxed only if
+  `stock > θ·R`, and then pays `due = τ·stock` (flat rate on whole stock, capped
+  at stock). `θ` is now purely the "who pays" eligibility line; progressivity
+  lives there, not in marginal bracketing. (At θ=0 this is identical to before —
+  the change only bites for θ>0, where the rich now pay on their whole pile.)
+  Updated village.js, the gene table + collect step in DEVPLAN, and the inline
+  comment. Genome smoke still coordinates, more sharply: g-pool Gini 0.017,
+  g-chiefdom 0.572, g-defectors collapses (avgStock 0.2, hunger 5994).
 - **Birth threshold is now affine in village size (density-dependent growth
   brake).** Reproduction cost is `max(1, round(birthThreshold + birthThresholdRate
   · pop))`, recomputed each birth on live pop. New param `birthThresholdRate`

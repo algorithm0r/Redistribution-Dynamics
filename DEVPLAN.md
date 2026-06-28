@@ -253,8 +253,8 @@ one is *behavioral*.
 
 | gene | role | meaning |
 |---|---|---|
-| **τ** rate | policy | fraction of the taxable bracket collected |
-| **θ** threshold | policy | exemption: only stock above `θ·R` (R = richest) is taxable — progressivity |
+| **τ** rate | policy | fraction of an eligible agent's **whole** stock collected |
+| **θ** threshold | policy | who pays: only agents with stock `> θ·R` (R = richest) are taxed (θ=0 everyone, θ=1 only the very top) — progressivity lives here |
 | **φ** focus | policy | distribute equally (0) ↔ neediest-first (1) |
 | **κ** hub | policy | share the hub (= current richest) keeps before the rest is distributed |
 | **λ** punish | policy | chance a defector's withheld due is destroyed (costly punishment) |
@@ -263,10 +263,11 @@ one is *behavioral*.
 **Within-village redistribution** (per tick, between gather and consume):
 1. **Enact policy.** Each policy gene is set for the village. Two governance
    models below; the resulting `(τ,θ,φ,κ,λ)` is applied uniformly this tick.
-2. **Collect.** R = richest stock. Each agent's due = `τ·max(0, stock − θ·R)`
-   (stochastically rounded to an integer, capped at stock). A **cooperator**
-   (roll < `coop`) pays it into the pot. A **defector** withholds; with prob `λ`
-   the due is destroyed (deadweight), else kept.
+2. **Collect.** R = richest stock. An agent is taxed only if `stock > θ·R`; an
+   eligible agent's due = `τ·stock` — a flat rate on **whole** wealth, not just the
+   excess above the line (stochastically rounded to an integer, capped at stock). A
+   **cooperator** (roll < `coop`) pays it into the pot. A **defector** withholds;
+   with prob `λ` the due is destroyed (deadweight), else kept.
 3. **Hub.** If `κ>0`, the richest agent keeps `κ·pot`; the rest is distributable.
 4. **Distribute.** Split the pot: `φ` fraction goes by **water-filling** (pour
    units into the lowest stocks first), `1−φ` fraction equally to all. Integer

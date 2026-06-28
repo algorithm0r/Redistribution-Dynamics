@@ -27,14 +27,16 @@ function applyGenomePolicy(agents, policy) {
 
     const { tau, theta, phi, kappa, lambda } = policy || genePolicy(agents);
 
-    // Collect on a progressive bracket; cooperators pay, defectors withhold and
-    // may be punished (their due destroyed).
+    // Collect a flat tau of WHOLE wealth from everyone above the theta "who pays"
+    // line (theta=0 -> everyone with stock; theta=1 -> only the very richest).
+    // Progressivity now lives entirely in the eligibility line, not in marginal
+    // bracketing. Cooperators pay; defectors withhold and may be punished (due destroyed).
     const R = agents.reduce((m, a) => Math.max(m, a.stock), 0);
     const threshold = theta * R;
     let pot = 0;
     for (const a of agents) {
-        let due = stochasticRound(tau * Math.max(0, a.stock - threshold));
-        due = Math.min(due, a.stock);
+        if (a.stock <= threshold) continue;
+        const due = Math.min(a.stock, stochasticRound(tau * a.stock));
         if (due <= 0) continue;
         if (Math.random() < a.coop) { a.stock -= due; pot += due; }
         else if (Math.random() < lambda) { a.stock -= due; }
