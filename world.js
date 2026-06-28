@@ -396,8 +396,12 @@ class WorldObserver {
                 } else if (villagerView) {
                     this.drawVillagers(ctx, v, x, y, cell - 2, meanStock, levels);
                 } else {
-                    const pol = v.policy || v.enactedPolicy();
-                    const hue = Math.round(120 * pol[gene]);   // red = 0, green = 1
+                    // Policy genes (tau..lambda) come from the enacted policy (the vote);
+                    // coop isn't voted, so colour by the village's median compliance.
+                    const value = gene === 'coop'
+                        ? median(v.agents.map(a => a.coop))
+                        : (v.policy || v.enactedPolicy())[gene];
+                    const hue = Math.round(120 * value);   // red = 0, green = 1
                     const light = 90 - 58 * Math.min(1, v.pop / PARAMETERS.cap);
                     ctx.fillStyle = hsl(hue, 75, light);
                     ctx.fillRect(x, y, cell - 2, cell - 2);
