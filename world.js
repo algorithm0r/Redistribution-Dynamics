@@ -407,7 +407,9 @@ class WorldObserver {
                     const full = cell - 2;
                     const size = full * Math.sqrt(Math.min(1, v.pop / PARAMETERS.cap));
                     const off = (full - size) / 2;
-                    ctx.fillStyle = "#f3f3f3";
+                    // Backing is a neutral grey at the SAME lightness as the square,
+                    // so cell brightness doesn't track pop — only the coloured area does.
+                    ctx.fillStyle = "#808080";
                     ctx.fillRect(x, y, full, full);
                     ctx.fillStyle = hsl(hue, 75, 50);
                     ctx.fillRect(x + off, y + off, size, size);
