@@ -4,6 +4,17 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Coop-tercile gene breakdown on the histograms.** Each record, living agents are
+  split by coop rank into thirds (lo=defectors, mid, hi=cooperators); for every gene
+  the mean within each third is tracked (`geneCoopMean`, shipped in the packet).
+  `Histogram` gained an `overlays` option (coloured per-snapshot lines); each gene's
+  agent histogram now traces three lines — defectors (red) / middlers (yellow) /
+  cooperators (green) — so genes that correlate with cooperation show as a vertical
+  gap between the red and green lines. Probe (clone-founders, selection on, 1500t)
+  already shows cooperators preferring higher τ (hi 0.80 vs lo 0.66) and higher κ;
+  θ/φ/λ ~flat. Empty third → NaN (line skips).
+- **Migration on by default.** New default rates: `pMigrateRandom` 0.01,
+  `pMigrateMisfit` 0.25, `pMigrateStarve` 0.20 (parameters.js + index.html).
 - **Catastrophe now scales with crowding.** `applyCatastrophes` wipeout chance is
   `catastropheChance × (populated neighbours)` instead of flat — an isolated
   village (0 populated neighbours) is **never** wiped; a fully-surrounded one is

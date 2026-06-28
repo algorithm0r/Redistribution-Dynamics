@@ -45,6 +45,25 @@ class Histogram {
             this.ctx.stroke();
         }
 
+        // Optional extra coloured lines, each {values:[0..1 per snapshot], color}.
+        // Used to trace subgroup means (e.g. coop terciles) over the distribution.
+        if (this.overlays) {
+            for (const ov of this.overlays) {
+                this.ctx.strokeStyle = ov.color;
+                this.ctx.lineWidth = 1.5;
+                this.ctx.beginPath();
+                let started = false;
+                for (let i = 0; i < length; i++) {
+                    const m = ov.values[i + start];
+                    if (m == null || isNaN(m)) { started = false; continue; }
+                    const px = this.x + i, py = this.y + (1 - m) * this.height;
+                    if (!started) { this.ctx.moveTo(px, py); started = true; }
+                    else this.ctx.lineTo(px, py);
+                }
+                this.ctx.stroke();
+            }
+        }
+
         this.ctx.font = '10px Arial';
         this.ctx.fillStyle = "#000000";
         this.ctx.textAlign = "center";
