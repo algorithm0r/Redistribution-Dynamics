@@ -2,6 +2,20 @@
 
 Newest entries at the top.
 
+## 2026-06-27
+
+- **Aligned with the shared conventions (added the two missing carriers).** Audited
+  the repo against `~/.claude/conventions.md` (this project is one of its cited
+  exemplars). Conformant on the big things — append-only DEVLOG, living DEVPLAN,
+  `PARAMETERS`-as-source-of-truth serialized into every packet, Server referenced
+  not copied, model/view `*Observer` split. Closed the two gaps that mattered:
+  added a per-project **`CLAUDE.md`** (the convention's #1 propagation carrier:
+  read-first sequence, doc map, never-violate rules, style, gotchas) and a
+  **`.gitattributes`** pinning `eol=lf` on served JS/CSS/HTML/JSON/MD (we deploy to
+  Pages from a CRLF machine), CRLF on `*.ps1`. Left the cosmetic drift as-is
+  (`parameters.js` vs `params.js`, vestigial `assetmanager.js`, the `vm`
+  `const→var` rewrite, `stage1` collection name) — low value, wide blast radius.
+
 ## 2026-06-22
 
 - **Village-level gene histograms + cached policy (kill redundant medians).**

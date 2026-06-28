@@ -1,0 +1,23 @@
+# Normalize line endings so deploy-bound text doesn't break on a Windows checkout.
+# (This repo auto-deploys to GitHub Pages from a CRLF machine; LF keeps the
+#  served JS/CSS/HTML byte-stable across platforms.)
+
+* text=auto
+
+# Deploy-bound / served files — force LF.
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+
+# Windows-only tooling — keep CRLF.
+*.ps1  text eol=crlf
+
+# Binary assets — never normalize.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
