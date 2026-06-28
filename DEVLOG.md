@@ -4,6 +4,28 @@ Newest entries at the top.
 
 ## 2026-06-27
 
+- **Birth threshold is now affine in village size (density-dependent growth
+  brake).** Reproduction cost is `max(1, round(birthThreshold + birthThresholdRate
+  · pop))`, recomputed each birth on live pop. New param `birthThresholdRate`
+  (default 0.0 = old flat behavior, fully backward-compatible) wired through
+  PARAMETERS + UI (base field + per-villager-rate field) + `World.birthCost(v)`.
+  *Why:* flat cost → constant per-capita birth rate → exponential growth → grid
+  saturates by tick ~40–100, which kills migration's colonizing/sorting role for
+  ~85% of a run (measured — see below). A positive rate makes the absolute birth
+  rate per village ~constant → linear growth → a frontier of empty cells persists.
+  `fillcompare.js` (8×8, cap 40, 600t): saturation at tick **92** (rate 0) → **183**
+  (0.5) → **412** (1.0); `base 0 + rate 1` ("=pop") → 152; `rate 2` over-brakes
+  (stalls at ~5 villages, growth ≈ death). `worldsmoke` unchanged at rate 0 (within
+  stochastic noise; capped scenarios pinned at 1440).
+- **Instrumented migration firing (`migstats.js`).** Faithful counting twin of
+  `migrationDest` (identical RNG order → identical trajectory). Findings on a
+  saturated 8×8: **random** fires at its nominal rate (10% → reliable mixing);
+  **misfit** is throttled ~10–30× by the mismatch multiplier (effective <1%, since
+  avg policy mismatch is only 0.03 uniform / 0.09 random founders); **starve** is
+  nearly inert (≤0.2% of agent-ticks are starved-and-eligible, and the death pass
+  runs first, so starvers die before they flee). Across all vectors, movers land on
+  an **empty** cell ~0% of the time once the grid is full — migration becomes pure
+  shuffling, not colonizing. This is what motivated the growth-brake above.
 - **Aligned with the shared conventions (added the two missing carriers).** Audited
   the repo against `~/.claude/conventions.md` (this project is one of its cited
   exemplars). Conformant on the big things — append-only DEVLOG, living DEVPLAN,

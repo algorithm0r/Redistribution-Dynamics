@@ -51,7 +51,12 @@ const PARAMETERS = {
     seedPop: 12,              // starting population per founding village
     randomizeGenes: true,     // seed founders with random social genes (else from inputs)
     cap: 100,                 // soft carrying capacity per village
-    birthThreshold: 50,       // growth points (needs-met villager-ticks) per new villager
+    // Cost (in needs-met villager-ticks) of each birth/fission, affine in village size:
+    //   threshold = max(1, round(birthThreshold + birthThresholdRate * pop))
+    // Rate 0 = flat cost (exponential growth); rate>0 adds a per-villager cost that
+    // brakes growth toward linear (e.g. base 0 + rate 1 = "threshold equals pop").
+    birthThreshold: 50,       // base cost, independent of size
+    birthThresholdRate: 0.0,  // added cost per current villager
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
     starveDeathChance: 0.5,   // per-tick death chance for an unfed agent
@@ -103,6 +108,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.gridCols = gridSize;
     PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
     PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
+    PARAMETERS.birthThresholdRate = parseFloat(document.getElementById("birthThresholdRate").value);
     PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
     PARAMETERS.catastropheChance  = parseFloat(document.getElementById("catastropheChance").value);
     PARAMETERS.fissionSize        = parseFloat(document.getElementById("fissionSize").value);
@@ -146,6 +152,7 @@ const saveParametersToUI = () => {
     document.getElementById("gridSize").value           = PARAMETERS.gridRows;
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
+    document.getElementById("birthThresholdRate").value = PARAMETERS.birthThresholdRate;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
     document.getElementById("catastropheChance").value  = PARAMETERS.catastropheChance;
     document.getElementById("fissionSize").value        = PARAMETERS.fissionSize;

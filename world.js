@@ -95,12 +95,21 @@ class World {
                 if (this.grid[r][c] && Math.random() < p) this.grid[r][c] = null;
     }
 
+    /** Growth points needed for the next birth/fission, affine in village size:
+     *  base + rate * pop. Rate 0 is a flat cost (exponential growth); a positive
+     *  rate adds a per-villager cost that brakes growth toward linear — a
+     *  density-dependent check on how fast the grid fills. */
+    birthCost(v) {
+        return Math.max(1, Math.round(PARAMETERS.birthThreshold + PARAMETERS.birthThresholdRate * v.pop));
+    }
+
     /** Spend growth points: birth below cap, fission at/above cap. */
     reproduceOrFission(v) {
-        const th = PARAMETERS.birthThreshold;
         const cap = PARAMETERS.cap;
         let guard = 10000;
-        while (v.growthPoints >= th && guard-- > 0) {
+        while (guard-- > 0) {
+            const th = this.birthCost(v);   // recomputed each step: pop changes as it grows
+            if (v.growthPoints < th) break;
             if (v.pop < cap) {
                 v.growthPoints -= th;
                 const fed = v.agents.filter(a => !a.starved);

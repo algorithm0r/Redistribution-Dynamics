@@ -308,10 +308,18 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
   goes **extinct**, freeing the cell.
 - **Reproduction (needs-met growth points).** Each tick a village gains +1 point
   per **needs-met** villager (rewards size *and* equity; hoarding earns nothing
-  because the starving aren't counted). When `growthPoints ≥ birthThreshold`,
-  subtract the threshold and, if `pop < cap`, **birth** one villager — a random
-  needs-met parent, genes inherited with mutation, endowed `initialStock`. The
-  same signal at `pop ≥ cap` triggers **fission** instead.
+  because the starving aren't counted). When `growthPoints ≥ threshold`, subtract
+  the threshold and, if `pop < cap`, **birth** one villager — a random needs-met
+  parent, genes inherited with mutation, endowed `initialStock`. The same signal
+  at `pop ≥ cap` triggers **fission** instead. The threshold is **affine in
+  village size**: `threshold = max(1, round(birthThreshold + birthThresholdRate ·
+  pop))`. With `birthThresholdRate = 0` the cost is flat and per-capita birth rate
+  is constant → **exponential** growth (the grid saturates in ~40–100 ticks). A
+  positive rate adds a per-villager cost so the absolute birth rate per village
+  becomes ~constant → **linear** growth, a density-dependent brake that keeps a
+  frontier of empty cells open longer (restoring migration's colonizing role).
+  Useful range `rate ∈ (0, 1]`; `rate = 1, base = 0` is "threshold equals pop";
+  `rate ≳ 2` over-brakes (growth ≈ death, villages can't fill).
 - **Fission.** Send a `fissionSize` fraction of the village (default 0.5 = at most
   half) to an eligible neighbor — any cell with `pop < fissionMaxFraction · cap`
   (default 0.5 = at most half full; empty included). Empty target → new village;
