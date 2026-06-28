@@ -4,6 +4,18 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **CORRECTION: the default config does NOT collapse.** The earlier "extinct
+  ~t1900" note below was measured with migration OFF (all `pMigrate*` = 0, the
+  defaults at that time). Once migration was turned on (random 0.01 / misfit 0.25 /
+  starve 0.20), the current committed defaults are **viable and thriving**:
+  verbatim-defaults runs settle at ~3,500–4,500 pop on a full 100-village grid and
+  persist (checked 5k ticks, multiple reps). Controlled A/B (only `pMigrate*`
+  toggled, 3k ticks): migration ON ≈ 3,800 pop; migration OFF ≈ 540 pop (low but
+  not extinct). So migration — chiefly starve-seeking (agents flee starvation to
+  richer neighbours) and misfit sorting (compatible agents concentrate into
+  redistributive villages) — is the rescue; the neighbour-scaled catastrophe and
+  whole-wealth tax help at the margin. Lesson: re-measure against live params; the
+  collapse claim was stale after the defaults changed.
 - **Coop-tercile SUB-histograms (full distributions per group).** Reworked the
   gene panel into a 5-column-per-gene grid: `all | defectors | middlers |
   cooperators | villages`, each a heat-strip with its white mean line; the `all`
