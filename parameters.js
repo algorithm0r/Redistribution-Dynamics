@@ -12,7 +12,7 @@ const PARAMETERS = {
 
     // ── Domain (Model 1, Stage 1 — see DEVPLAN.md) ─────────────────────────
     initialAgents: 100,
-    initialStock: 10,         // starting resource stock per agent
+    initialStock: 0,          // starting stock for a new agent (founders AND newborns)
 
     pNoGather: 0.2,           // chance to fail gathering this tick  (bane)
     pNoConsume: 0.2,          // chance to skip consumption this tick (boon)
@@ -58,6 +58,8 @@ const PARAMETERS = {
     // brakes growth toward linear (e.g. base 0 + rate 1 = "threshold equals pop").
     birthThreshold: 0,        // base cost, independent of size
     birthThresholdRate: 4,    // added cost per current villager
+    wealthProportionalBirth: false, // group births: pick the parent ~ stock (else uniform among fed)
+    individualBirthThreshold: 0,    // an agent with >= this stock spends it to self-breed (0 = off)
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
     starveDeathChance: 0.1,   // per-tick death chance for an unfed agent
@@ -110,6 +112,8 @@ const loadParametersFromUI = () => {
     PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
     PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
     PARAMETERS.birthThresholdRate = parseFloat(document.getElementById("birthThresholdRate").value);
+    PARAMETERS.wealthProportionalBirth  = document.getElementById("wealthProportionalBirth").checked;
+    PARAMETERS.individualBirthThreshold = parseInt(document.getElementById("individualBirthThreshold").value);
     PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
     PARAMETERS.catastropheChance  = parseFloat(document.getElementById("catastropheChance").value);
     PARAMETERS.fissionSize        = parseFloat(document.getElementById("fissionSize").value);
@@ -155,6 +159,8 @@ const saveParametersToUI = () => {
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
     document.getElementById("birthThresholdRate").value = PARAMETERS.birthThresholdRate;
+    document.getElementById("wealthProportionalBirth").checked = PARAMETERS.wealthProportionalBirth;
+    document.getElementById("individualBirthThreshold").value  = PARAMETERS.individualBirthThreshold;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
     document.getElementById("catastropheChance").value  = PARAMETERS.catastropheChance;
     document.getElementById("fissionSize").value        = PARAMETERS.fissionSize;

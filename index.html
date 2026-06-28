@@ -51,6 +51,10 @@
                     <input type="number" id="birthThreshold" value="0" min="0" max="10000" step="1"><br>
                     <label for="birthThresholdRate">&nbsp;&nbsp;+ per-villager rate (x pop):</label>
                     <input type="number" id="birthThresholdRate" value="4" step="0.1" min="0" max="100"><br>
+                    <label for="wealthProportionalBirth">Group parent &prop; wealth:</label>
+                    <input type="checkbox" id="wealthProportionalBirth"><br>
+                    <label for="individualBirthThreshold">Individual birth threshold (0=off):</label>
+                    <input type="number" id="individualBirthThreshold" value="0" min="0" max="10000" step="1"><br>
                     <label for="starveDeathChance">Starve death chance:</label>
                     <input type="number" id="starveDeathChance" value="0.1" step="0.01" min="0" max="1"><br>
                     <label for="catastropheChance">Catastrophe chance (&times; populated neighbors):</label>
@@ -140,7 +144,7 @@
                 <fieldset>
                     <legend>Environment &amp; evolution</legend>
                     <label for="initialStock">Initial stock per agent:</label>
-                    <input type="number" id="initialStock" value="10" min="0" max="1000"><br>
+                    <input type="number" id="initialStock" value="0" min="0" max="1000"><br>
                     <label for="pNoGather">Chance to fail gathering (bane):</label>
                     <input type="number" id="pNoGather" value="0.2" step="0.01" min="0" max="1"><br>
                     <label for="pNoConsume">Chance to skip consuming (boon):</label>

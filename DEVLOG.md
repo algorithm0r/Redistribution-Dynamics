@@ -4,6 +4,20 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Individual-level fecundity options (+ newborns start at 0).** Two new knobs that
+  add individual selection alongside group births: `wealthProportionalBirth` (group
+  birth picks the parent ∝ stock instead of uniform among fed — `pickByStock`) and
+  `individualBirthThreshold` (an agent with ≥ this stock spends it to spawn one child
+  of its own per tick, outside the village growth-point budget; 0 = off, cap-gated so
+  it can't run away). Both reward wealth accumulation = defection, the individual
+  counterweight to group selection: wealth-prop drops mean coop 0.55→0.23; individual
+  breeding alone crushed it to 0.05 (when newborns were minted stock). **Set
+  `initialStock` 10→0** (founders AND newborns start destitute): stops per-birth
+  resource minting and makes individual breeding a genuine cost (parent pays, child
+  starts at 0) — it's now self-limiting (lowers pop) rather than exploding. Verified
+  viable: defaults ~2.2k pop/full grid; individual th=10 ~1.6k. Also fixed: without
+  initialStock=0 + cap-gate, individual breeding ran away (newborns were instantly
+  rich enough to re-breed: 7k→130k+).
 - **Fix: only needs-met (fed) villagers can be a birth parent.** `reproduceOrFission`
   fell back to the whole village when no agent was fed (`pool = fed.length ? fed :
   v.agents`), so a fully-starved village could still birth from a starved parent off

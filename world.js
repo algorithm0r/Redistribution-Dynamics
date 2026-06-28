@@ -136,7 +136,8 @@ class World {
                 const fed = v.agents.filter(a => !a.starved);
                 if (fed.length === 0) break;   // only needs-met villagers may parent; bank the points
                 v.growthPoints -= th;
-                v.agents.push(fed[randomInt(fed.length)].spawnChild());
+                const parent = PARAMETERS.wealthProportionalBirth ? pickByStock(fed) : fed[randomInt(fed.length)];
+                v.agents.push(parent.spawnChild());
             } else {
                 const target = this.fissionTarget(v);
                 if (!target) break;          // nowhere to send a colony; sit at cap

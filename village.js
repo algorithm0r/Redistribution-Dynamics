@@ -92,6 +92,16 @@ function pourWaterFill(agents, units) {
     }
 }
 
+/** Pick an agent with probability proportional to its stock (uniform if all 0). */
+function pickByStock(agents) {
+    let total = 0;
+    for (const a of agents) total += a.stock;
+    if (total <= 0) return agents[randomInt(agents.length)];
+    let r = Math.random() * total;
+    for (const a of agents) { r -= a.stock; if (r < 0) return a; }
+    return agents[agents.length - 1];
+}
+
 /** Normalized [0,1] distance between an agent's policy genes and a village policy. */
 function policyDistance(a, pol) {
     const d = Math.sqrt(
@@ -128,6 +138,24 @@ class Village {
         this.growthPoints += this.agents.reduce((s, a) => s + (a.starved ? 0 : 1), 0);
 
         this.applyDeaths();
+        this.individualBirths();
+    }
+
+    /** Individual-level fecundity: every surviving agent rich enough spends
+     *  `individualBirthThreshold` stock to spawn one child of its own this tick
+     *  (outside the village growth-point budget). Bounded by the carrying capacity
+     *  `cap` so it can't run away (newborns are eligible again next tick). Threshold
+     *  0 disables it. */
+    individualBirths() {
+        const th = PARAMETERS.individualBirthThreshold;
+        if (th <= 0) return;
+        const cap = PARAMETERS.cap;
+        const parents = this.agents.filter(a => a.stock >= th);   // snapshot: newborns don't breed this tick
+        for (const a of parents) {
+            if (this.agents.length >= cap) break;   // respect carrying capacity
+            a.stock -= th;
+            this.agents.push(a.spawnChild());
+        }
     }
 
     /** Remove the dead: starvation hazard for the unfed, plus background mortality. */
@@ -140,5 +168,5 @@ class Village {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-    module.exports = { applyGenomePolicy, pourWaterFill, policyDistance, Village };
+    module.exports = { applyGenomePolicy, pourWaterFill, policyDistance, pickByStock, Village };
 }
