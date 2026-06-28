@@ -4,6 +4,15 @@ Newest entries at the top.
 
 ## 2026-06-28
 
+- **Added `cloneFounders` village-seeding option.** When on, each founding village
+  is one founder + its **mutated genetic clones** (via `spawnChild`) instead of
+  independently-random villagers. Orthogonal to `randomizeGenes` (which still sets
+  whether the founder's genome is random or from inputs). Default off (current
+  behavior). *Why:* it concentrates genetic variance **between** villages rather
+  than **within** them — the structure multilevel selection acts on. Probe at
+  seeding (6×30, randomizeGenes on): within-village τ SD 0.267→**0.020** (= the
+  0.02 mutation floor), between-village mean τ SD 0.073→**0.276** (≈ full uniform
+  spread). Wired through PARAMETERS + UI checkbox + `World` constructor.
 - **New default parameter set (deliberately includes a collapsing config).**
   Changed defaults in `parameters.js` + `index.html`: `epoch` 10000→100000,
   bane/boon (`pNoGather`/`pNoConsume`) 0.1→0.2 (now **net-zero luck**),

@@ -32,10 +32,21 @@ class World {
         while (seeded < PARAMETERS.seedVillages) {
             const r = randomInt(this.rows), c = randomInt(this.cols);
             if (this.grid[r][c]) continue;
+            // Seed the founders. With `cloneFounders`, the first agent is the
+            // founder and the rest are mutated genetic clones of it (low within-
+            // village variance, high between-village variance — the structure
+            // group selection acts on). Otherwise each villager is independent.
             const agents = [];
+            let founder = null;
             for (let i = 0; i < PARAMETERS.seedPop; i++) {
-                const a = new Agent();
-                if (PARAMETERS.randomizeGenes) a.randomizeGenome();
+                let a;
+                if (PARAMETERS.cloneFounders && founder) {
+                    a = founder.spawnChild();          // mutated clone of the founder
+                } else {
+                    a = new Agent();
+                    if (PARAMETERS.randomizeGenes) a.randomizeGenome();
+                    if (PARAMETERS.cloneFounders) founder = a;   // first agent founds the line
+                }
                 agents.push(a);
             }
             this.grid[r][c] = new Village(r, c, agents);

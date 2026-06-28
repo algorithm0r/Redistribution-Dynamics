@@ -50,6 +50,7 @@ const PARAMETERS = {
     seedVillages: 10,         // founding villages on the empty grid
     seedPop: 30,              // starting population per founding village
     randomizeGenes: true,     // seed founders with random social genes (else from inputs)
+    cloneFounders: false,     // each village = one founder + its mutated clones (low within-village variance)
     cap: 100,                 // soft carrying capacity per village
     // Cost (in needs-met villager-ticks) of each birth/fission, affine in village size:
     //   threshold = max(1, round(birthThreshold + birthThresholdRate * pop))
@@ -114,6 +115,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.fissionSize        = parseFloat(document.getElementById("fissionSize").value);
     PARAMETERS.fissionMaxFraction = parseFloat(document.getElementById("fissionMaxFraction").value);
     PARAMETERS.randomizeGenes      = document.getElementById("randomizeGenes").checked;
+    PARAMETERS.cloneFounders       = document.getElementById("cloneFounders").checked;
     PARAMETERS.pMigrateRandom     = parseFloat(document.getElementById("pMigrateRandom").value);
     PARAMETERS.pMigrateMisfit     = parseFloat(document.getElementById("pMigrateMisfit").value);
     PARAMETERS.pMigrateStarve     = parseFloat(document.getElementById("pMigrateStarve").value);
@@ -158,6 +160,7 @@ const saveParametersToUI = () => {
     document.getElementById("fissionSize").value        = PARAMETERS.fissionSize;
     document.getElementById("fissionMaxFraction").value = PARAMETERS.fissionMaxFraction;
     document.getElementById("randomizeGenes").checked   = PARAMETERS.randomizeGenes;
+    document.getElementById("cloneFounders").checked    = PARAMETERS.cloneFounders;
     document.getElementById("pMigrateRandom").value     = PARAMETERS.pMigrateRandom;
     document.getElementById("pMigrateMisfit").value     = PARAMETERS.pMigrateMisfit;
     document.getElementById("pMigrateStarve").value     = PARAMETERS.pMigrateStarve;
