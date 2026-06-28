@@ -21,8 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('error', e => console.log('socket error', e));
 
     socket.on('distinct', names => populateRuns(names));
-    socket.on('count', n => fetchRun(n));
-    socket.on('find', arr => receiveDocs(arr));
 
     document.getElementById('loadRuns').onclick = loadRuns;
     document.getElementById('query').onclick = () => querySelected();
@@ -30,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sel = document.getElementById('runSelect');
         if (sel.options.length) { sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length; querySelected(); }
     };
+    document.getElementById('coopOverview').onclick = coopOverview;
     document.getElementById('download').onclick = downloadCSV;
 });
 
@@ -55,13 +54,85 @@ function querySelected() {
     const name = document.getElementById('runSelect').value;
     if (!name) return;
     setInfo(`Querying "${name}"…`);
-    socket.emit('count', { db: PARAMETERS.db, collection: collection(), query: { run: name } });
+    socket.emit('find', { db: PARAMETERS.db, collection: collection(), query: { run: name }, limit: 200, page: 0 },
+        res => { if (res && res.ok) receiveDocs(res.results); else setInfo('Query failed (no ack).'); });
 }
 
-function fetchRun(n) {
-    const name = document.getElementById('runSelect').value;
-    docs = [];
-    socket.emit('find', { db: PARAMETERS.db, collection: collection(), query: { run: name }, limit: Math.max(1, n), page: 0 });
+/** Overlay plot of mean cooperation over time for every run in the collection,
+ *  each run averaged across its replicates. One find per run (projected to the
+ *  coop series only, via socket ack so responses don't collide). */
+function coopOverview() {
+    let names = Array.from(document.getElementById('runSelect').options).map(o => o.value);
+    const go = () => {
+        if (!names.length) { setInfo('No runs found.'); return; }
+        setInfo(`Fetching coop series for ${names.length} runs…`);
+        const series = [];
+        let pending = names.length;
+        names.forEach(name => {
+            socket.emit('find', {
+                db: PARAMETERS.db, collection: collection(), query: { run: name },
+                projection: { run: 1, 'geneMeans.coop': 1, 'parameters.individualBirthThreshold': 1, 'parameters.wealthProportionalBirth': 1, 'parameters.reportingPeriod': 1 },
+                limit: 200, page: 0,
+            }, res => {
+                if (res && res.ok && res.results.length) {
+                    const r = res.results, p = r[0].parameters || {};
+                    series.push({ name, coop: avgArrays(r.map(x => x.geneMeans && x.geneMeans.coop)),
+                                  th: p.individualBirthThreshold, wp: p.wealthProportionalBirth, reps: r.length });
+                    if (p.reportingPeriod) reportingPeriod = p.reportingPeriod;
+                }
+                if (--pending === 0) drawOverview(series);
+            });
+        });
+    };
+    if (names.length) go();
+    else socket.emit('distinct', { db: PARAMETERS.db, collection: collection(), key: 'run' },
+        res => { if (res && res.ok) { populateRuns(res.values); names = (res.values || []).slice(); go(); } });
+}
+
+function ovRank(s) { return s.wp ? -1 : (s.th === 0 ? -2 : s.th); }
+function ovLabel(s) { return s.wp ? 'wealth-parent' : (s.th === 0 ? 'baseline' : 'th=' + s.th); }
+function ovColor(s) { return s.wp ? '#a0a' : (s.th === 0 ? '#000' : hsl(Math.round(240 * (s.th - 1) / 9), 70, 45)); }
+
+function drawOverview(series) {
+    const ctx = CTX;
+    ctx.clearRect(0, 0, 2400, 1300);
+    series = series.filter(s => s.coop && s.coop.length).sort((a, b) => ovRank(a) - ovRank(b));
+    ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 18px monospace';
+    ctx.fillText(`Mean cooperation over time — all runs in "${collection()}"  (low threshold = red → high = blue; baseline black, wealth-parent magenta)`, 20, 26);
+
+    const x = 60, y = 60, w = 2280, h = 1150;
+    const maxLen = Math.max(...series.map(s => s.coop.length), 1);
+    const epoch = (maxLen - 1) * reportingPeriod;
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#eee'; ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+    for (let cc = 0; cc <= 10; cc++) {
+        const yy = y + h - cc / 10 * h;
+        ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w, yy); ctx.stroke();
+        ctx.textAlign = 'right'; ctx.fillText((cc / 10).toFixed(1), x - 4, yy + 4);
+    }
+    ctx.textAlign = 'center';
+    for (let f = 0; f <= 10; f++) ctx.fillText(Math.round(f / 10 * epoch), x + f / 10 * w, y + h + 16);
+
+    series.forEach(s => {
+        ctx.strokeStyle = ovColor(s); ctx.lineWidth = 2; ctx.beginPath(); let started = false;
+        for (let i = 0; i < s.coop.length; i++) {
+            const v = s.coop[i]; if (!isFinite(v)) { started = false; continue; }
+            const px = x + (maxLen > 1 ? i / (maxLen - 1) * w : 0), py = y + h - v * h;
+            if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+    });
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+
+    ctx.textAlign = 'left'; ctx.font = '13px monospace';
+    let ly = y + 16;
+    series.forEach(s => {
+        ctx.strokeStyle = ovColor(s); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x + w - 240, ly - 4); ctx.lineTo(x + w - 216, ly - 4); ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.fillText(`${ovLabel(s).padEnd(14)} ${lastFinite(s.coop).toFixed(2)}  (${s.reps}r)`, x + w - 208, ly);
+        ly += 17;
+    });
 }
 
 function receiveDocs(arr) {
@@ -74,9 +145,9 @@ function receiveDocs(arr) {
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
-/** Average a per-timestep series across docs, skipping null/NaN entries. */
-function avgSeries(pick) {
-    const arrs = docs.map(pick).filter(a => Array.isArray(a));
+/** Average a list of per-timestep arrays, skipping null/NaN entries. */
+function avgArrays(arrs) {
+    arrs = arrs.filter(a => Array.isArray(a));
     if (!arrs.length) return [];
     const len = Math.min(...arrs.map(a => a.length));
     const out = [];
@@ -87,6 +158,8 @@ function avgSeries(pick) {
     }
     return out;
 }
+/** Average a series picked from each loaded doc (replicates of one run). */
+function avgSeries(pick) { return avgArrays(docs.map(pick)); }
 
 /** Pool histograms across docs: sum bucket counts per snapshot (one big histogram). */
 function poolHist(pick) {
