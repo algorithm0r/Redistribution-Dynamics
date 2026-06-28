@@ -48,11 +48,11 @@
                     <label for="cap">Village cap:</label>
                     <input type="number" id="cap" value="100" min="2" max="1000" step="1"><br>
                     <label for="birthThreshold">Birth threshold (base, needs-met points):</label>
-                    <input type="number" id="birthThreshold" value="50" min="1" max="10000" step="1"><br>
+                    <input type="number" id="birthThreshold" value="0" min="0" max="10000" step="1"><br>
                     <label for="birthThresholdRate">&nbsp;&nbsp;+ per-villager rate (x pop):</label>
-                    <input type="number" id="birthThresholdRate" value="0.0" step="0.1" min="0" max="100"><br>
+                    <input type="number" id="birthThresholdRate" value="4" step="0.1" min="0" max="100"><br>
                     <label for="starveDeathChance">Starve death chance:</label>
-                    <input type="number" id="starveDeathChance" value="0.5" step="0.01" min="0" max="1"><br>
+                    <input type="number" id="starveDeathChance" value="0.1" step="0.01" min="0" max="1"><br>
                     <label for="catastropheChance">Catastrophe chance (village wipeout):</label>
                     <input type="number" id="catastropheChance" value="0.001" step="0.001" min="0" max="1"><br>
                     <label for="fissionSize">Fission size (frac that leaves):</label>
@@ -140,15 +140,15 @@
                     <label for="initialStock">Initial stock per agent:</label>
                     <input type="number" id="initialStock" value="10" min="0" max="1000"><br>
                     <label for="pNoGather">Chance to fail gathering (bane):</label>
-                    <input type="number" id="pNoGather" value="0.1" step="0.01" min="0" max="1"><br>
+                    <input type="number" id="pNoGather" value="0.2" step="0.01" min="0" max="1"><br>
                     <label for="pNoConsume">Chance to skip consuming (boon):</label>
-                    <input type="number" id="pNoConsume" value="0.1" step="0.01" min="0" max="1"><br>
+                    <input type="number" id="pNoConsume" value="0.2" step="0.01" min="0" max="1"><br>
                     <label for="mutationStdev">Mutation std dev:</label>
                     <input type="number" id="mutationStdev" value="0.02" step="0.005" min="0" max="1"><br>
                     <label for="deathChance">Random death chance per tick:</label>
-                    <input type="number" id="deathChance" value="0.01" step="0.001" min="0" max="1"><br>
+                    <input type="number" id="deathChance" value="0.001" step="0.001" min="0" max="1"><br>
                     <label for="epoch">Epoch (ticks per run):</label>
-                    <input type="number" id="epoch" value="10000" min="100" max="1000000" step="100"><br>
+                    <input type="number" id="epoch" value="100000" min="100" max="1000000" step="100"><br>
                     <label for="reportingPeriod">Data sample rate (ticks):</label>
                     <input type="number" id="reportingPeriod" value="100" min="1" max="100000" step="1"><br>
                     <label for="updatesPerDraw">Updates per draw (ticks):</label>

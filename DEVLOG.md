@@ -2,6 +2,26 @@
 
 Newest entries at the top.
 
+## 2026-06-28
+
+- **New default parameter set (deliberately includes a collapsing config).**
+  Changed defaults in `parameters.js` + `index.html`: `epoch` 10000→100000,
+  bane/boon (`pNoGather`/`pNoConsume`) 0.1→0.2 (now **net-zero luck**),
+  `starveDeathChance` 0.5→0.1, `deathChance` 0.01→0.001, `birthThreshold` (base)
+  50→0, `birthThresholdRate` (per-villager) 0→4, `seedPop` 12→30. (Also loosened
+  the birthThreshold UI input `min` 1→0.) "N" read as `seedPop`, not the single-pop
+  `initialAgents`.
+  - **Viability probe (recorded so this isn't rediscovered):** with these defaults
+    the world **goes extinct ~t1900** on the default 10×10 / cap 100 / seedVillages
+    10 grid. Cause is an *interaction*, not rate 4 alone: under a rate-4 brake a
+    seed village of 30 grows toward cap 100 too slowly to fission/colonize before
+    `catastropheChance` (0.001/village/tick) wipes it → the grid bleeds out. Each of
+    these independently rescues it: rate→1 (fills grid, ~9.7k pop), seedPop→~cap,
+    cap→~seedPop (dense fissions fast), or catastrophe→0 (~56 villages). On a dense
+    6×6/cap 40/seedPop 30 grid even rate 4 survives. **Chris chose to keep rate 4
+    as-is** — the default config is intentionally on the collapse side; tune
+    seedPop/cap/catastrophe/rate per experiment.
+
 ## 2026-06-27
 
 - **Tax (τ) now applies to whole wealth, not the marginal excess.** Collection

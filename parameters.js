@@ -14,8 +14,8 @@ const PARAMETERS = {
     initialAgents: 100,
     initialStock: 10,         // starting resource stock per agent
 
-    pNoGather: 0.1,           // chance to fail gathering this tick  (bane)
-    pNoConsume: 0.1,          // chance to skip consumption this tick (boon)
+    pNoGather: 0.2,           // chance to fail gathering this tick  (bane)
+    pNoConsume: 0.2,          // chance to skip consumption this tick (boon)
 
     // Redistribution rule, applied every tick between gather and consume:
     //   'none'  — no transfers
@@ -40,7 +40,7 @@ const PARAMETERS = {
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.
     evolveTraits: false,
     mutationStdev: 0.02,      // std dev of the Gaussian trait mutation
-    deathChance: 0.01,        // per-tick random (trait-independent) death chance
+    deathChance: 0.001,       // per-tick random (trait-independent) death chance
     coupleTraits: false,      // tie pNoGather == pNoConsume as one gene (drift 0)
 
     // Model V — grid of villages (spatial group selection; see DEVPLAN.md).
@@ -48,18 +48,18 @@ const PARAMETERS = {
     gridRows: 10,
     gridCols: 10,
     seedVillages: 10,         // founding villages on the empty grid
-    seedPop: 12,              // starting population per founding village
+    seedPop: 30,              // starting population per founding village
     randomizeGenes: true,     // seed founders with random social genes (else from inputs)
     cap: 100,                 // soft carrying capacity per village
     // Cost (in needs-met villager-ticks) of each birth/fission, affine in village size:
     //   threshold = max(1, round(birthThreshold + birthThresholdRate * pop))
     // Rate 0 = flat cost (exponential growth); rate>0 adds a per-villager cost that
     // brakes growth toward linear (e.g. base 0 + rate 1 = "threshold equals pop").
-    birthThreshold: 50,       // base cost, independent of size
-    birthThresholdRate: 0.0,  // added cost per current villager
+    birthThreshold: 0,        // base cost, independent of size
+    birthThresholdRate: 4,    // added cost per current villager
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
-    starveDeathChance: 0.5,   // per-tick death chance for an unfed agent
+    starveDeathChance: 0.1,   // per-tick death chance for an unfed agent
     catastropheChance: 0.001, // per-tick chance an entire village is wiped out
     pMigrateRandom: 0.0,      // migration vector: relocate to a random neighbour
     pMigrateMisfit: 0.0,      // migration vector: relocate by policy mismatch (Tiebout)
@@ -73,7 +73,7 @@ const PARAMETERS = {
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)
     reportingPeriod: 100,     // record statistics every N ticks
-    epoch: 10000,             // ticks per run before data is sent and the run ends
+    epoch: 100000,            // ticks per run before data is sent and the run ends
 
     db: "redistribution_dynamics",
     collection: "stage1",
