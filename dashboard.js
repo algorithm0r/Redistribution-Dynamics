@@ -322,9 +322,15 @@ function draw() {
         { values: agg.mig.misfit, color: '#c33', label: 'misfit' },
         { values: agg.mig.random, color: '#36c', label: 'random' },
     ], { title: 'Migrations / period (avg)', min: 0 });
-    drawGraph(gx(4), gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
+    const covX = gx(4);
+    drawGraph(covX, gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
         ({ values: agg.coopCorr[g], color: GENE_COL[i], label: g })),
-        { title: agg.hasCov ? 'corr(coop, gene) over time' : 'corr(coop,gene) — re-run to populate', min: -1, max: 1 });
+        { title: 'corr(coop, gene) over time', min: -1, max: 1 });
+    if (!agg.hasCov) {
+        ctx.fillStyle = '#999'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('no covariance in these runs', covX + gw / 2, gy + gh / 2 - 6);
+        ctx.fillText('(re-run to populate)', covX + gw / 2, gy + gh / 2 + 12);
+    }
 
     // Histogram grid: 5 columns per gene (rows), pooled across replicates.
     const cols = [

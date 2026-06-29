@@ -393,6 +393,22 @@ class WorldDataManager {
         return false;
     }
 
+    /** A random sample of K agents' full genomes + their village, taken once at the
+     *  end of the run — preserves the JOINT distribution (clusters / conditionals)
+     *  the marginal summaries can't. Genome order = geneNames. */
+    endpointSample(k) {
+        const tagged = this.world.villages().flatMap(v => v.agents.map(a => ({ a, r: v.row, c: v.col })));
+        const m = Math.min(k, tagged.length);
+        for (let i = 0; i < m; i++) {   // partial Fisher–Yates: first m are a uniform sample
+            const j = i + randomInt(tagged.length - i);
+            const t = tagged[i]; tagged[i] = tagged[j]; tagged[j] = t;
+        }
+        return tagged.slice(0, m).map(({ a, r, c }) => ({
+            r, c, stock: a.stock,
+            g: [a.tau, a.theta, a.phi, a.kappa, a.lambda, a.coop],
+        }));
+    }
+
     send() {
         const packet = {
             db: PARAMETERS.db,
@@ -412,6 +428,7 @@ class WorldDataManager {
                 geneOrder: this.geneNames,
                 geneCovariance: this.geneCov,
                 villageRecords: this.villageRecords,
+                populationSample: this.endpointSample(256),
             },
         };
         if (typeof socket !== "undefined" && socket) {
