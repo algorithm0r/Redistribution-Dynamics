@@ -296,6 +296,13 @@ class WorldDataManager {
         // spatial / multilevel (Price-equation) analyses.
         this.geneCov = [];
         this.villageRecords = [];
+
+        // Correlation of coop with each policy gene over time (derived from the
+        // covariance) — for the live observer's leading-edge plot. NaN where coop
+        // has ~no variance (a committed world).
+        this.policyGenes = ['tau', 'theta', 'phi', 'kappa', 'lambda'];
+        this.coopCorr = {};
+        this.policyGenes.forEach(g => this.coopCorr[g] = []);
     }
 
     record() {
@@ -355,6 +362,13 @@ class WorldDataManager {
             }
         }
         this.geneCov.push(cov);
+
+        // corr(coop, gene) for the live observer (leading-edge view).
+        const ciC = G.indexOf('coop'), vcoop = cov[ciC][ciC];
+        this.policyGenes.forEach(g => {
+            const gi = G.indexOf(g), denom = Math.sqrt(vcoop * cov[gi][gi]);
+            this.coopCorr[g].push(denom > 1e-9 ? cov[ciC][gi] / denom : NaN);
+        });
 
         // Per-village summary: position, size, mean coop, enacted policy, growth points.
         this.villageRecords.push(villages.map(v => {
@@ -451,6 +465,10 @@ class WorldObserver {
             new Graph(xA, 36, colW, 70, [dm.popSeries], "Total population", 0, 0, true),
             new Graph(xB, 36, colW, 70, [dm.migStarve, dm.migMisfit, dm.migRandom],
                       "Migr/period: starve·misfit·random", 0, 0, true),
+            // corr(coop, gene) over time, in the space below the histogram grid.
+            new Graph(gx, 1108, 644, 162, dm.policyGenes.map(g => dm.coopCorr[g]),
+                      "corr(coop, gene):  tau theta phi kappa lambda", -1, 1, false,
+                      ["#c33", "#3a3", "#36c", "#c80", "#90c"]),
         ];
 
         // Per gene, a row of value-distribution heat-strips (low at bottom, high at
