@@ -26,6 +26,12 @@
         run: <select id="runSelect"></select>
         <button id="query">Query</button>
         <button id="nextRun">Next Run &#9658;</button>
+        basin: <select id="basinFilter">
+            <option value="all">all reps</option>
+            <option value="coop">cooperators</option>
+            <option value="defect">defectors</option>
+        </select>
+        &#8805;<input id="basinThresh" value="0.5" size="3">
         <button id="coopOverview">Coop time-series (all runs)</button>
         <button id="download">Download CSV</button>
         <span id="info">—</span>

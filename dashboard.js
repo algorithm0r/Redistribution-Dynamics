@@ -10,7 +10,7 @@
 const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop'];
 const COOP_COL = { lo: '#d11', mid: '#a80', hi: '#1a1' };  // defectors / middlers / cooperators
 
-let socket, CTX, docs = [], agg = null, reportingPeriod = 100;
+let socket, CTX, docsAll = [], docs = [], agg = null, reportingPeriod = 100;
 
 document.addEventListener('DOMContentLoaded', () => {
     CTX = document.getElementById('chart').getContext('2d');
@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sel.options.length) { sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length; querySelected(); }
     };
     document.getElementById('coopOverview').onclick = coopOverview;
+    document.getElementById('basinFilter').onchange = () => { if (docsAll.length) applyBasinFilter(); };
+    document.getElementById('basinThresh').onchange = () => { if (docsAll.length) applyBasinFilter(); };
     document.getElementById('download').onclick = downloadCSV;
 });
 
@@ -137,11 +139,43 @@ function drawOverview(series) {
 
 function receiveDocs(arr) {
     if (!arr || !arr.length) { setInfo('No data for this run.'); return; }
-    docs = arr;
-    reportingPeriod = (docs[0].parameters && docs[0].parameters.reportingPeriod) || 100;
-    agg = aggregate(docs);
+    docsAll = arr;
+    reportingPeriod = (docsAll[0].parameters && docsAll[0].parameters.reportingPeriod) || 100;
+    applyBasinFilter();
+}
+
+/** Classify a replicate by which basin it ended in: 'coop' if its tail-mean
+ *  cooperation is >= the basin threshold, else 'defect'. */
+function basinThreshold() { return parseFloat(document.getElementById('basinThresh').value) || 0.5; }
+function basinOf(doc) {
+    const c = doc.geneMeans && doc.geneMeans.coop;
+    if (!c || !c.length) return 'defect';
+    const tail = c.slice(-10).filter(v => v != null && isFinite(v));
+    const m = tail.length ? tail.reduce((a, b) => a + b, 0) / tail.length : 0;
+    return m >= basinThreshold() ? 'coop' : 'defect';
+}
+
+/** Split the loaded replicates into basins; aggregate + draw only the selected
+ *  subset (all / cooperators / defectors). The coop graph still shows both basins. */
+function applyBasinFilter() {
+    const f = document.getElementById('basinFilter').value;
+    const coopReps = docsAll.filter(d => basinOf(d) === 'coop');
+    const defectReps = docsAll.filter(d => basinOf(d) === 'defect');
+    docs = f === 'coop' ? coopReps : f === 'defect' ? defectReps : docsAll;
+    const split = `${docsAll.length} reps: ${coopReps.length} coop / ${defectReps.length} defect`;
+    if (!docs.length) {
+        CTX.clearRect(0, 0, 2400, 1300); agg = null;
+        setInfo(`"${docsAll[0].run}" — ${split}. None in "${f}" basin.`);
+        return;
+    }
+    agg = aggregate();
+    agg._basin = {
+        coop: coopReps.length, defect: defectReps.length,
+        coopMean: avgArrays(coopReps.map(d => d.geneMeans && d.geneMeans.coop)),
+        defectMean: avgArrays(defectReps.map(d => d.geneMeans && d.geneMeans.coop)),
+    };
     draw();
-    setInfo(`"${docs[0].run}" — ${docs.length} replicate(s) aggregated.`);
+    setInfo(`"${docsAll[0].run}" — ${split}. Showing: ${f} (${docs.length}).`);
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
@@ -214,12 +248,13 @@ function draw() {
     const p = docs[0].parameters || {};
     const coopFinal = lastFinite(agg.geneMean.coop);
 
+    const showing = document.getElementById('basinFilter').value;
     ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 18px monospace';
-    ctx.fillText(`${docs[0].run}   (${docs.length} rep${docs.length > 1 ? 's' : ''})`, 20, 24);
+    ctx.fillText(`${docsAll[0].run}   (showing ${showing}: ${docs.length}/${docsAll.length} reps  —  ${agg._basin.coop} coop / ${agg._basin.defect} defect)`, 20, 24);
     ctx.font = '13px monospace';
     ctx.fillText(`indivBirthThreshold=${p.individualBirthThreshold}   wealthPropParent=${p.wealthProportionalBirth}   ` +
         `epoch=${p.epoch}   sample=${p.reportingPeriod}   migrate r/m/s=${p.pMigrateRandom}/${p.pMigrateMisfit}/${p.pMigrateStarve}   ` +
-        `→ final mean coop=${coopFinal.toFixed(3)}`, 360, 24);
+        `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 720, 24);
 
     // Line graphs.
     const gy = 50, gw = 565, gh = 150;
@@ -227,8 +262,11 @@ function draw() {
         { values: agg.population, color: '#000', label: 'pop' },
         { values: agg.villages.map(v => v * (maxOf(agg.population) / Math.max(1, maxOf(agg.villages)))), color: '#888', label: 'villages(scaled)' },
     ], { title: 'Population (avg) & villages', min: 0 });
-    drawGraph(605, gy, gw, gh, [{ values: agg.geneMean.coop, color: '#1a1', label: 'coop' }],
-        { title: 'Mean cooperation', min: 0, max: 1 });
+    drawGraph(605, gy, gw, gh, [
+        { values: agg._basin.coopMean, color: '#1a1', label: `coop-basin(${agg._basin.coop})` },
+        { values: agg._basin.defectMean, color: '#c33', label: `defect-basin(${agg._basin.defect})` },
+        { values: agg.geneMean.coop, color: '#000', label: 'shown' },
+    ], { title: 'Mean cooperation by basin', min: 0, max: 1 });
     drawGraph(1190, gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
         ({ values: agg.geneMean[g], color: ['#c33', '#3a3', '#36c', '#c80', '#90c'][i], label: g })),
         { title: 'Policy gene means', min: 0, max: 1 });
