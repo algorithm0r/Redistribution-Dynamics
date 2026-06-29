@@ -29,8 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sel.options.length) { sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length; querySelected(); }
     };
     document.getElementById('coopOverview').onclick = coopOverview;
-    document.getElementById('basinFilter').onchange = () => { if (docsAll.length) applyBasinFilter(); };
-    document.getElementById('basinThresh').onchange = () => { if (docsAll.length) applyBasinFilter(); };
+    ['basinFilter', 'poleThresh', 'loEdge', 'hiEdge', 'polarMin'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.onchange = () => { if (docsAll.length) applyBasinFilter(); };
+    });
     document.getElementById('download').onclick = downloadCSV;
 });
 
@@ -144,38 +146,59 @@ function receiveDocs(arr) {
     applyBasinFilter();
 }
 
-/** Classify a replicate by which basin it ended in: 'coop' if its tail-mean
- *  cooperation is >= the basin threshold, else 'defect'. */
-function basinThreshold() { return parseFloat(document.getElementById('basinThresh').value) || 0.5; }
-function basinOf(doc) {
-    const c = doc.geneMeans && doc.geneMeans.coop;
-    if (!c || !c.length) return 'defect';
-    const tail = c.slice(-10).filter(v => v != null && isFinite(v));
-    const m = tail.length ? tail.reduce((a, b) => a + b, 0) / tail.length : 0;
-    return m >= basinThreshold() ? 'coop' : 'defect';
+const CATS = ['coop', 'defect', 'polar', 'middling'];
+const CAT_COLOR = { coop: '#1a1', defect: '#c33', polar: '#a0a', middling: '#c80' };
+
+function num(id, dflt) { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : dflt; }
+
+/** Fractions of agents in the FINAL coop snapshot below loEdge / above hiEdge / between. */
+function coopFracs(doc) {
+    const h = doc.geneHistograms && doc.geneHistograms.coop;
+    if (!h || !h.length) return null;
+    const snap = h[h.length - 1], nb = snap.length, tot = snap.reduce((a, b) => a + b, 0) || 1;
+    const loEdge = num('loEdge', 0.3), hiEdge = num('hiEdge', 0.7);
+    let lo = 0, hi = 0, mid = 0;
+    for (let b = 0; b < nb; b++) {
+        const v = (b + 0.5) / nb;
+        if (v < loEdge) lo += snap[b]; else if (v > hiEdge) hi += snap[b]; else mid += snap[b];
+    }
+    return { lo: lo / tot, hi: hi / tot, mid: mid / tot };
 }
 
-/** Split the loaded replicates into basins; aggregate + draw only the selected
- *  subset (all / cooperators / defectors). The coop graph still shows both basins. */
+/** Classify a replicate by the SHAPE of its final coop distribution:
+ *  coop (>=pole at the high pole), defect (>=pole at the low pole),
+ *  polar (>=polarMin at BOTH poles — coexistence), else middling. */
+function basinOf(doc) {
+    const f = coopFracs(doc);
+    if (!f) return 'middling';
+    const pole = num('poleThresh', 0.9), polar = num('polarMin', 0.2);
+    if (f.hi >= pole) return 'coop';
+    if (f.lo >= pole) return 'defect';
+    if (f.lo >= polar && f.hi >= polar) return 'polar';
+    return 'middling';
+}
+
+/** Split the loaded replicates into the four classes; aggregate + draw only the
+ *  selected subset. The coop graph shows each class's mean trajectory. */
 function applyBasinFilter() {
     const f = document.getElementById('basinFilter').value;
-    const coopReps = docsAll.filter(d => basinOf(d) === 'coop');
-    const defectReps = docsAll.filter(d => basinOf(d) === 'defect');
-    docs = f === 'coop' ? coopReps : f === 'defect' ? defectReps : docsAll;
-    const split = `${docsAll.length} reps: ${coopReps.length} coop / ${defectReps.length} defect`;
+    const groups = { coop: [], defect: [], polar: [], middling: [] };
+    docsAll.forEach(d => groups[basinOf(d)].push(d));
+    docs = f === 'all' ? docsAll : groups[f];
+    const split = CATS.map(c => `${groups[c].length} ${c}`).join(' / ');
     if (!docs.length) {
         CTX.clearRect(0, 0, 2400, 1300); agg = null;
-        setInfo(`"${docsAll[0].run}" — ${split}. None in "${f}" basin.`);
+        setInfo(`"${docsAll[0].run}" — ${docsAll.length} reps: ${split}. None in "${f}".`);
         return;
     }
     agg = aggregate();
-    agg._basin = {
-        coop: coopReps.length, defect: defectReps.length,
-        coopMean: avgArrays(coopReps.map(d => d.geneMeans && d.geneMeans.coop)),
-        defectMean: avgArrays(defectReps.map(d => d.geneMeans && d.geneMeans.coop)),
-    };
+    agg._cats = { counts: {}, means: {} };
+    CATS.forEach(c => {
+        agg._cats.counts[c] = groups[c].length;
+        agg._cats.means[c] = avgArrays(groups[c].map(d => d.geneMeans && d.geneMeans.coop));
+    });
     draw();
-    setInfo(`"${docsAll[0].run}" — ${split}. Showing: ${f} (${docs.length}).`);
+    setInfo(`"${docsAll[0].run}" — ${docsAll.length} reps: ${split}. Showing: ${f} (${docs.length}).`);
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
@@ -238,6 +261,30 @@ function aggregate() {
             hi: poolHist(d => d.geneCoopHistograms && d.geneCoopHistograms[g] && d.geneCoopHistograms[g].hi),
         };
     });
+
+    // Correlation of coop with each policy gene over time, from the (replicate-
+    // averaged) 6x6 covariance. Degenerate (NaN) where coop has ~no variance —
+    // i.e. committed worlds; meaningful in polar/mixed reps. Absent on old runs.
+    a.coopCorr = {};
+    GENES.filter(g => g !== 'coop').forEach(g => a.coopCorr[g] = []);
+    a.hasCov = docs.some(d => Array.isArray(d.geneCovariance) && d.geneCovariance.length);
+    if (a.hasCov) {
+        const order = docs.find(d => d.geneOrder) ? docs.find(d => d.geneOrder).geneOrder : GENES;
+        const ng = order.length, ci = order.indexOf('coop');
+        const covDocs = docs.map(d => d.geneCovariance).filter(c => Array.isArray(c) && c.length);
+        const len = Math.min(...covDocs.map(c => c.length));
+        const polic = GENES.filter(g => g !== 'coop');
+        for (let t = 0; t < len; t++) {
+            const M = Array.from({ length: ng }, () => new Array(ng).fill(0));
+            covDocs.forEach(c => { for (let i = 0; i < ng; i++) for (let j = 0; j < ng; j++) M[i][j] += c[t][i][j]; });
+            for (let i = 0; i < ng; i++) for (let j = 0; j < ng; j++) M[i][j] /= covDocs.length;
+            const vc = M[ci][ci];
+            polic.forEach(g => {
+                const gi = order.indexOf(g), denom = Math.sqrt(vc * M[gi][gi]);
+                a.coopCorr[g].push(denom > 1e-9 ? M[ci][gi] / denom : NaN);
+            });
+        }
+    }
     return a;
 }
 
@@ -249,32 +296,35 @@ function draw() {
     const coopFinal = lastFinite(agg.geneMean.coop);
 
     const showing = document.getElementById('basinFilter').value;
-    ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 18px monospace';
-    ctx.fillText(`${docsAll[0].run}   (showing ${showing}: ${docs.length}/${docsAll.length} reps  —  ${agg._basin.coop} coop / ${agg._basin.defect} defect)`, 20, 24);
+    const c = agg._cats.counts;
+    ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 17px monospace';
+    ctx.fillText(`${docsAll[0].run}  (showing ${showing}: ${docs.length}/${docsAll.length})  —  ${c.coop} coop / ${c.defect} defect / ${c.polar} polar / ${c.middling} middling`, 20, 24);
     ctx.font = '13px monospace';
     ctx.fillText(`indivBirthThreshold=${p.individualBirthThreshold}   wealthPropParent=${p.wealthProportionalBirth}   ` +
-        `epoch=${p.epoch}   sample=${p.reportingPeriod}   migrate r/m/s=${p.pMigrateRandom}/${p.pMigrateMisfit}/${p.pMigrateStarve}   ` +
-        `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 720, 24);
+        `epoch=${p.epoch}   migrate r/m/s=${p.pMigrateRandom}/${p.pMigrateMisfit}/${p.pMigrateStarve}   ` +
+        `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 840, 24);
 
-    // Line graphs.
-    const gy = 50, gw = 565, gh = 150;
-    drawGraph(20, gy, gw, gh, [
+    // Line graphs (five across the top).
+    const gy = 50, gw = 465, gh = 150, GENE_COL = ['#c33', '#3a3', '#36c', '#c80', '#90c'];
+    const gx = i => 20 + i * (gw + 12);
+    drawGraph(gx(0), gy, gw, gh, [
         { values: agg.population, color: '#000', label: 'pop' },
         { values: agg.villages.map(v => v * (maxOf(agg.population) / Math.max(1, maxOf(agg.villages)))), color: '#888', label: 'villages(scaled)' },
     ], { title: 'Population (avg) & villages', min: 0 });
-    drawGraph(605, gy, gw, gh, [
-        { values: agg._basin.coopMean, color: '#1a1', label: `coop-basin(${agg._basin.coop})` },
-        { values: agg._basin.defectMean, color: '#c33', label: `defect-basin(${agg._basin.defect})` },
-        { values: agg.geneMean.coop, color: '#000', label: 'shown' },
-    ], { title: 'Mean cooperation by basin', min: 0, max: 1 });
-    drawGraph(1190, gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
-        ({ values: agg.geneMean[g], color: ['#c33', '#3a3', '#36c', '#c80', '#90c'][i], label: g })),
+    drawGraph(gx(1), gy, gw, gh, CATS.map(cat => ({ values: agg._cats.means[cat], color: CAT_COLOR[cat], label: `${cat}(${c[cat]})` }))
+        .concat([{ values: agg.geneMean.coop, color: '#000', label: 'shown' }]),
+        { title: 'Mean coop by class', min: 0, max: 1 });
+    drawGraph(gx(2), gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
+        ({ values: agg.geneMean[g], color: GENE_COL[i], label: g })),
         { title: 'Policy gene means', min: 0, max: 1 });
-    drawGraph(1775, gy, gw, gh, [
+    drawGraph(gx(3), gy, gw, gh, [
         { values: agg.mig.starve, color: '#1a1', label: 'starve' },
         { values: agg.mig.misfit, color: '#c33', label: 'misfit' },
         { values: agg.mig.random, color: '#36c', label: 'random' },
     ], { title: 'Migrations / period (avg)', min: 0 });
+    drawGraph(gx(4), gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
+        ({ values: agg.coopCorr[g], color: GENE_COL[i], label: g })),
+        { title: agg.hasCov ? 'corr(coop, gene) over time' : 'corr(coop,gene) — re-run to populate', min: -1, max: 1 });
 
     // Histogram grid: 5 columns per gene (rows), pooled across replicates.
     const cols = [
@@ -327,6 +377,12 @@ function drawGraph(x, y, w, h, series, opts) {
     let max = opts.max, min = opts.min != null ? opts.min : 0;
     if (max == null) { max = -Infinity; series.forEach(s => s.values.forEach(v => { if (isFinite(v) && v > max) max = v; })); }
     if (!isFinite(max) || max <= min) max = min + 1;
+    if (min < 0 && max > 0) {   // zero reference line for signed ranges (e.g. correlation)
+        const zy = y + h - (0 - min) / (max - min) * h;
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, zy); ctx.lineTo(x + w, zy); ctx.stroke();
+        ctx.fillStyle = '#aaa'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillText('0', x + w - 2, zy - 2);
+    }
     const n = Math.max(...series.map(s => s.values.length), 1);
     series.forEach(s => {
         ctx.strokeStyle = s.color; ctx.lineWidth = 1.5; ctx.beginPath(); let started = false;
