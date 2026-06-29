@@ -592,6 +592,14 @@ class WorldObserver {
 
         this.graphs.forEach(g => g.draw(ctx));
 
+        // Colour legend for the corr(coop, gene) graph (+1 = cooperators want more,
+        // -1 = defectors want more; blank = a committed world, coop variance ~0).
+        const corrCols = ["#c33", "#3a3", "#36c", "#c80", "#90c"], corrNames = ["tau", "theta", "phi", "kappa", "lambda"];
+        ctx.font = "12px monospace"; ctx.textAlign = "left";
+        let clx = 1360;
+        corrNames.forEach((nm, i) => { ctx.fillStyle = corrCols[i]; ctx.fillText(nm, clx, 1102); clx += nm.length * 7.5 + 14; });
+        ctx.fillStyle = "#888"; ctx.fillText("(+1 coop wants more · -1 defectors want more)", clx + 6, 1102);
+
         // Legend for the per-gene histogram columns (one row per gene).
         ctx.font = "11px monospace"; ctx.textAlign = "left";
         ctx.fillStyle = "#222";    ctx.fillText("per-gene columns:  all", 1350, 146);

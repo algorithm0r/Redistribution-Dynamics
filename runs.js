@@ -9,7 +9,7 @@
  *   - wealth-parent: group birth parent chosen ~ stock (no individual breeding).
  *   - indbirth-NN:   individual birth threshold swept 1..10 (group births still on).
  */
-const COMMON = { spatial: true, collection: "indbirth_sweep2", epoch: 20000, reportingPeriod: 100 };
+const COMMON = { spatial: true, collection: "indbirth_sweep2", epoch: 30000, reportingPeriod: 100 };
 
 const runs = [
     { ...COMMON, runName: "baseline",      individualBirthThreshold: 0, wealthProportionalBirth: false },
