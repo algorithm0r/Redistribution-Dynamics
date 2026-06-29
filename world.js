@@ -289,6 +289,13 @@ class WorldDataManager {
             this.geneCoopMean[g] = { lo: [], mid: [], hi: [] };
             this.geneCoopHist[g] = { lo: [], mid: [], hi: [] };
         });
+
+        // Per sample: the full 6x6 gene covariance over the living population (exact,
+        // census — captures the JOINT/pairwise structure the marginal histograms can't),
+        // and a per-village summary (size, mean coop, enacted policy, growth) for the
+        // spatial / multilevel (Price-equation) analyses.
+        this.geneCov = [];
+        this.villageRecords = [];
     }
 
     record() {
@@ -328,6 +335,37 @@ class WorldDataManager {
             this.geneVillageMean[g].push(nv ? vsum / nv : 0);
             this.geneVillageHist[g].push(vcounts);
         });
+
+        // 6x6 gene covariance over the whole living population (one extra pass; ~21
+        // multiply-adds per agent, negligible vs the tick cost). Order = geneNames.
+        const G = this.geneNames, ng = G.length;
+        const gsum = new Array(ng).fill(0);
+        const gsp = Array.from({ length: ng }, () => new Array(ng).fill(0));
+        agents.forEach(a => {
+            for (let i = 0; i < ng; i++) {
+                const vi = a[G[i]]; gsum[i] += vi;
+                for (let j = i; j < ng; j++) gsp[i][j] += vi * a[G[j]];
+            }
+        });
+        const cov = Array.from({ length: ng }, () => new Array(ng).fill(0));
+        for (let i = 0; i < ng && n > 0; i++) {
+            for (let j = i; j < ng; j++) {
+                const c = gsp[i][j] / n - (gsum[i] / n) * (gsum[j] / n);
+                cov[i][j] = c; cov[j][i] = c;
+            }
+        }
+        this.geneCov.push(cov);
+
+        // Per-village summary: position, size, mean coop, enacted policy, growth points.
+        this.villageRecords.push(villages.map(v => {
+            const pol = v.policy || genePolicy(v.agents);
+            return {
+                r: v.row, c: v.col, n: v.pop,
+                coop: v.pop ? v.agents.reduce((s, a) => s + a.coop, 0) / v.pop : 0,
+                g: [pol.tau, pol.theta, pol.phi, pol.kappa, pol.lambda],
+                gp: v.growthPoints,
+            };
+        }));
 
         // Split living agents by coop rank into thirds, then each gene's mean within
         // each third. Empty third -> NaN (the overlay line skips it).
@@ -371,6 +409,9 @@ class WorldDataManager {
                 geneVillageHistograms: this.geneVillageHist,
                 geneCoopMeans: this.geneCoopMean,
                 geneCoopHistograms: this.geneCoopHist,
+                geneOrder: this.geneNames,
+                geneCovariance: this.geneCov,
+                villageRecords: this.villageRecords,
             },
         };
         if (typeof socket !== "undefined" && socket) {
