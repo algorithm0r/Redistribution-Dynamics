@@ -94,8 +94,6 @@ if (!isMainThread) {
         const PARAMETERS = ctx.PARAMETERS;
         const BASE = Object.assign({}, PARAMETERS);
 
-        const socket = await connectServer(BASE.ip);
-
         for (const run of runs) {
             const t0 = Date.now();
 
@@ -113,16 +111,19 @@ if (!isMainThread) {
             ctx.loadNextRunParameters = () => { runComplete = true; };
 
             const sim = vm.runInContext(PARAMETERS.spatial ? 'new World()' : 'new Population()', ctx);
-            while (!runComplete) sim.update();
+            while (!runComplete) sim.update();   // tight CPU loop: blocks the event loop the whole run
 
+            // Connect a FRESH socket only now, for the insert. (Holding one open across
+            // the run fails: the blocking loop above starves socket.io's pings, the
+            // server times the connection out, and the insert silently never acks.)
             if (capturedData) {
-                await emitAck(socket, 'insert', capturedData);   // { db, collection, data }
+                const socket = await connectServer(BASE.ip);
+                try { await emitAck(socket, 'insert', capturedData); }   // { db, collection, data }
+                finally { socket.close(); }
             }
 
             parentPort.postMessage({ runName: run.runName, ms: Date.now() - t0 });
         }
-
-        socket.close();
     })();
 }
 
