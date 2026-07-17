@@ -3,9 +3,8 @@
 Updated: 2026-07-17
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close)
 
-Provenance stamp `<version>` this session: `ddffe25` + uncommitted session work
-(pre-commit `git describe`: `ddffe25-dirty`; repo has no tags). Replace with the session
-commit SHA once committed.
+Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release,
+pushed to `origin`. Later drift reads as `v0.1.0-N-g<sha>`.
 
 ## Stage
 Model V (grid of villages, evolved redistribution genome) fully built and **live under a
