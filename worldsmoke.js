@@ -64,7 +64,36 @@ for (const s of scenarios) {
     console.log(
         `${s.label.padEnd(17)} | villages ${String(last(d.villages)).padStart(3)} | ` +
         `pop ${String(last(d.population)).padStart(5)} | ` +
-        `coop ${last(d.geneMeans.coop).toFixed(3)} | tau ${last(d.geneMeans.tau).toFixed(3)} | phi ${last(d.geneMeans.phi).toFixed(3)} | ` +
+        `coop ${last(d.geneMeans.coop).toFixed(3)} | tau ${last(d.geneMeans.tau).toFixed(3)} | psi ${last(d.geneMeans.psi).toFixed(3)} | phi ${last(d.geneMeans.phi).toFixed(3)} | ` +
         `tauHist[${tauHist.length} snaps, sum ${lastBins.reduce((a, b) => a + b, 0)}]`
+    );
+}
+
+// ── Franchise (psi) mechanism check ─────────────────────────────────────────
+// A poor majority wants high tax (tau=0.9); a rich minority wants none (tau=0.1).
+// Who votes decides which preference is enacted, so raising the franchise line
+// hands the economic vote to the wealthy. Deterministic — no RNG in genePolicy.
+{
+    const ctx = createCtx();
+    const P = ctx.PARAMETERS;
+    const mk = (stock, tau, psi) => { const a = new ctx.Agent(); a.stock = stock; a.tau = tau; a.psi = psi; return a; };
+    const agents = [
+        mk(1, 0.9, 0.5), mk(1, 0.9, 0.5), mk(1, 0.9, 0.5),   // poor majority
+        mk(100, 0.1, 0.5), mk(100, 0.1, 0.5),                // rich minority
+    ];
+    P.franchiseMode = 'B';
+    const uni  = ctx.genePolicy(agents, { psi: 0 });   // universal suffrage -> majority wins
+    const rich = ctx.genePolicy(agents, { psi: 1 });   // only the richest vote -> minority wins
+    P.franchiseMode = 'A';
+    const modeA = ctx.genePolicy(agents);              // psi=0.5 median gates to stock>=50 (the rich)
+    P.franchiseMode = 'off';
+    const off  = ctx.genePolicy(agents, { psi: 1 });   // psi ignored -> everyone votes -> majority wins
+    const ok = Math.abs(uni.tau - 0.9) < 1e-9 && Math.abs(rich.tau - 0.1) < 1e-9 &&
+               Math.abs(modeA.tau - 0.1) < 1e-9 && Math.abs(off.tau - 0.9) < 1e-9;
+    console.log(
+        `franchise-check   | universal tau ${uni.tau.toFixed(2)} (want 0.90) | ` +
+        `restricted tau ${rich.tau.toFixed(2)} (want 0.10) | ` +
+        `modeA(psi=.5) tau ${modeA.tau.toFixed(2)} (want 0.10) | ` +
+        `off tau ${off.tau.toFixed(2)} (want 0.90) | ${ok ? 'PASS' : 'FAIL'}`
     );
 }

@@ -45,7 +45,7 @@ class Population {
         for (let i = 0; i < this.agents.length; i++) {
             if (dying[i]) {
                 const parent = survivors[randomInt(survivors.length)];
-                this.agents[i] = parent.spawnChild();
+                this.agents[i] = reproduce(parent, survivors);   // sexual w.p. pSexual, else asexual clone
                 this.deaths++;
             }
         }
@@ -105,7 +105,10 @@ class Population {
      * is the per-gene median of the residents. See DEVPLAN.md.
      */
     genomeRedistribute() {
-        applyGenomePolicy(this.agents);
+        // Cache the enacted policy and feed it back next tick so the franchise gene
+        // psi behaves the same here as in Model V (mode B entrenchment; see village.js).
+        this.policy = genePolicy(this.agents, this.policy);
+        applyGenomePolicy(this.agents, this.policy);
     }
 
     /**

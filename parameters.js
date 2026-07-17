@@ -34,7 +34,25 @@ const PARAMETERS = {
     phi: 1.0,        // distribution focus: equal (0) -> neediest-first (1)
     kappa: 0.0,      // hub (richest) retained share
     lambda: 0.0,     // punishment: chance a defector's due is destroyed
+    psi: 0.0,        // franchise: who votes (0 everyone -> 1 only the wealthiest)
     coop: 1.0,       // compliance: chance an agent pays in when asked
+    omega: 0.5,      // INERT null tracer gene — mutates & is recorded but read by no
+                     // dynamics; the drift/draft baseline to compare real genes against
+
+    // Who votes on the franchise gene psi itself (breaks the self-reference):
+    //   'off' disabled  — psi ignored, everyone always votes (the pre-psi control)
+    //   'A' universal   — psi set by universal suffrage, then gates the other genes
+    //   'B' entrenched  — last tick's enacted psi gates this tick's whole vote
+    // (Only matters when psi > 0 evolves under the genome regime / Model V.)
+    franchiseMode: 'B',
+
+    // How theta's "who pays" and psi's "who votes" wealth-lines turn a [0,1] fraction
+    // into a stock cutoff (see wealthLine in village.js):
+    //   'relative'   — fraction of the richest agent's stock (the original rule; a
+    //                  single outlier sets the scale, so the knob goes numb under skew)
+    //   'percentile' — the fraction-th quantile of the stock distribution (evenly
+    //                  sensitive across [0,1] and robust to one runaway agent)
+    thresholdMode: 'relative',
 
     // Evolution: when on, a starving agent dies and is replaced by a mutated
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.
@@ -42,6 +60,12 @@ const PARAMETERS = {
     mutationStdev: 0.02,      // std dev of the Gaussian trait mutation
     deathChance: 0.001,       // per-tick random (trait-independent) death chance
     coupleTraits: false,      // tie pNoGather == pNoConsume as one gene (drift 0)
+    // Fraction of births that are SEXUAL (two fed parents, per-gene independent
+    // assortment = free recombination) vs asexual clones. 0 = original all-asexual
+    // model (complete linkage); 0.5 = a 50/50 mix. Recombination dissolves the genetic
+    // draft that lets neutral genes hitchhike on selective sweeps. Self-breeding
+    // (individualBirthThreshold) and founder cloning stay asexual regardless.
+    pSexual: 0.0,
 
     // Model V — grid of villages (spatial group selection; see DEVPLAN.md).
     spatial: false,           // run the World grid instead of a single Population
@@ -58,7 +82,9 @@ const PARAMETERS = {
     // brakes growth toward linear (e.g. base 0 + rate 1 = "threshold equals pop").
     birthThreshold: 0,        // base cost, independent of size
     birthThresholdRate: 4,    // added cost per current villager
-    wealthProportionalBirth: false, // group births: pick the parent ~ stock (else uniform among fed)
+    birthWealthBias: 0.0,     // group births: pick the parent ∝ stock^β. β=0 uniform
+                              // (wealth-blind), β=1 linear (the old wealthProportionalBirth),
+                              // β>1 steeper toward the wealthy. An individual-selection dial.
     individualBirthThreshold: 0,    // an agent with >= this stock spends it to self-breed (0 = off)
     fissionSize: 0.5,         // fraction of a capped village that buds off
     fissionMaxFraction: 0.5,  // a target may receive a colony only if pop < this * cap
@@ -96,11 +122,16 @@ const loadParametersFromUI = () => {
     PARAMETERS.phi    = parseFloat(document.getElementById("phi").value);
     PARAMETERS.kappa  = parseFloat(document.getElementById("kappa").value);
     PARAMETERS.lambda = parseFloat(document.getElementById("lambda").value);
+    PARAMETERS.psi    = parseFloat(document.getElementById("psi").value);
     PARAMETERS.coop   = parseFloat(document.getElementById("coop").value);
+    PARAMETERS.omega  = parseFloat(document.getElementById("omega").value);
+    PARAMETERS.franchiseMode = document.getElementById("franchiseMode").value;
+    PARAMETERS.thresholdMode = document.getElementById("thresholdMode").value;
     PARAMETERS.evolveTraits  = document.getElementById("evolveTraits").checked;
     PARAMETERS.mutationStdev = parseFloat(document.getElementById("mutationStdev").value);
     PARAMETERS.deathChance   = parseFloat(document.getElementById("deathChance").value);
     PARAMETERS.coupleTraits  = document.getElementById("coupleTraits").checked;
+    PARAMETERS.pSexual       = parseFloat(document.getElementById("pSexual").value);
     PARAMETERS.epoch         = parseInt(document.getElementById("epoch").value);
     PARAMETERS.reportingPeriod = parseInt(document.getElementById("reportingPeriod").value);
     PARAMETERS.updatesPerDraw  = parseInt(document.getElementById("updatesPerDraw").value);
@@ -112,7 +143,7 @@ const loadParametersFromUI = () => {
     PARAMETERS.cap                = parseInt(document.getElementById("cap").value);
     PARAMETERS.birthThreshold     = parseInt(document.getElementById("birthThreshold").value);
     PARAMETERS.birthThresholdRate = parseFloat(document.getElementById("birthThresholdRate").value);
-    PARAMETERS.wealthProportionalBirth  = document.getElementById("wealthProportionalBirth").checked;
+    PARAMETERS.birthWealthBias          = parseFloat(document.getElementById("birthWealthBias").value);
     PARAMETERS.individualBirthThreshold = parseInt(document.getElementById("individualBirthThreshold").value);
     PARAMETERS.starveDeathChance  = parseFloat(document.getElementById("starveDeathChance").value);
     PARAMETERS.catastropheChance  = parseFloat(document.getElementById("catastropheChance").value);
@@ -145,11 +176,16 @@ const saveParametersToUI = () => {
     document.getElementById("phi").value    = PARAMETERS.phi;
     document.getElementById("kappa").value  = PARAMETERS.kappa;
     document.getElementById("lambda").value = PARAMETERS.lambda;
+    document.getElementById("psi").value    = PARAMETERS.psi;
     document.getElementById("coop").value   = PARAMETERS.coop;
+    document.getElementById("omega").value  = PARAMETERS.omega;
+    document.getElementById("franchiseMode").value = PARAMETERS.franchiseMode;
+    document.getElementById("thresholdMode").value = PARAMETERS.thresholdMode;
     document.getElementById("evolveTraits").checked = PARAMETERS.evolveTraits;
     document.getElementById("mutationStdev").value = PARAMETERS.mutationStdev;
     document.getElementById("deathChance").value   = PARAMETERS.deathChance;
     document.getElementById("coupleTraits").checked = PARAMETERS.coupleTraits;
+    document.getElementById("pSexual").value        = PARAMETERS.pSexual;
     document.getElementById("epoch").value         = PARAMETERS.epoch;
     document.getElementById("reportingPeriod").value = PARAMETERS.reportingPeriod;
     document.getElementById("updatesPerDraw").value  = PARAMETERS.updatesPerDraw;
@@ -159,7 +195,7 @@ const saveParametersToUI = () => {
     document.getElementById("cap").value                = PARAMETERS.cap;
     document.getElementById("birthThreshold").value     = PARAMETERS.birthThreshold;
     document.getElementById("birthThresholdRate").value = PARAMETERS.birthThresholdRate;
-    document.getElementById("wealthProportionalBirth").checked = PARAMETERS.wealthProportionalBirth;
+    document.getElementById("birthWealthBias").value = PARAMETERS.birthWealthBias;
     document.getElementById("individualBirthThreshold").value  = PARAMETERS.individualBirthThreshold;
     document.getElementById("starveDeathChance").value  = PARAMETERS.starveDeathChance;
     document.getElementById("catastropheChance").value  = PARAMETERS.catastropheChance;

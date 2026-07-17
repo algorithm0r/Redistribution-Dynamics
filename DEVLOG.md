@@ -2,6 +2,188 @@
 
 Newest entries at the top.
 
+## 2026-07-17 — session close: soft-cap model + distributed adaptive sweep (also: draft controls, perf, CVD palette)
+
+**Done:** (1) `thresholdMode` relative|percentile for θ/ψ wealth-lines. (2) CVD-safe
+viridis + Okabe–Ito palette across all renders. (3) ω inert tracer gene + sexual
+reproduction (`pSexual`) — proved ψ's drift-to-boundary in `off` is genetic **draft**,
+not selection (recombination de-concentrates inert genes, coop stays selected). (4)
+`birthWealthBias` β (P∝stock^β) replacing the `wealthProportionalBirth` boolean. (5)
+Hot-path perf: quickselect median (no map+sort alloc), squared-distance ranking — ~20–25%
+faster/tick. (6) **`sweep/`** — a distributed adaptive coordinator ported/streamlined from
+the domestication runner: CI-driven dovetail dispatch, heartbeats + dead-worker reaping,
+Mongo-resume, file-served dashboard (mean-coop viridis cells, bistable ◤, chugger 🐌,
+timing/ETA), multi-machine (12 local + 5 on mint via SSH). (7) **Soft cap** — `birthProb(pop)
+= (cap−pop)/(cap−1)` gates both birth channels; retired the hard cap + (dead) fission.
+
+**Changed:** DEVPLAN status/roadmap updated (Model V live under sweep; soft cap; sweep
+infra). DEVLOG per-topic entries below. New `sweep/` dir (coordinator/worker/headless/
+launch/stats/grid/dashboard). `reproduceOrFission`→`reproduceGroup`; `fission*` now dead.
+
+**State:** builds/runs. `worldsmoke` franchise-check PASS, `smoketest` Ginis stable,
+`medianInPlace` == old median on 120k cases, recombination unit-checked, soft-cap pop test
+(mean village ~74 < cap, total 12k→7.4k). **Live now:** `balance_grid` sweep (243 cells)
+running — 17 workers / 2 hosts, no dupes, dovetailing; Mongo `redistribution_dynamics.
+balance_grid`. @ `ddffe25` + this session's commit (no tags; pre-commit stamp `ddffe25-dirty`).
+Caveat: migration still overflows village cap (~1.7×), accepted.
+
+**Next:** analyze `balance_grid` as it fills; build the fig/aggregation dashboard (8091);
+possibly soft-gate migration-in; Model G (village-level genome). To iterate the dashboard,
+edit `sweep/dashboard.html` (file-served, no restart); coordinator *logic* changes need a
+**full-fleet** restart (coordinator-only restarts risk a transient dupe).
+
+---
+
+- **Soft carrying-capacity replaces the hard cap + fission; sweep redesigned as an
+  individual-vs-group balance grid (`balance_grid`, 243 cells).** The hard cap was a
+  cliff (birth if `pop<cap` else fission), fission wasn't actually functional, and easy
+  self-breeding blew villages past cap (pop ~12k, chugging). New `village.birthProb(pop)
+  = (cap−pop)/(cap−1)` gates **both** group births (`reproduceGroup`, formerly
+  `reproduceOrFission`) and individual self-breeding: a full village stops reproducing
+  (no offspring, no resources spent) and resumes as deaths open room — logistic, no
+  cliff. Verified: mean village pop settles ~74 (< cap), total pop 12k→7.4k (~35% faster
+  runs), grid still fills 100/100 via migration (fission dead — `fission*` now unused).
+  Caveat logged: **migration still doesn't respect the cap** (popular villages reach
+  ~1.7× cap); accepted for now. Dispersal alternative rejected — in a saturated grid
+  neighbors are equally full, so it collapses back to a hard cap.
+  - **New sweep** `balance_grid`: individual-selection axis as a **union** (β and ind are
+    the same knob, so no cross) — `base` + β-arm {0.5,1,2,4} + ind-arm {2,4,6,8} (9) ×
+    **group axis** `birthThresholdRate` {2,4,6} (3) × franchise {off,A,B} (3) × pSexual
+    {0,0.5,1} (3) = **243**. `pMigrateRandom` 0 → **0.02** (connectivity + colonization +
+    less draft). Launched clean (12 local + 5 mint); dashboard reworked for the new axes
+    (rows = individual conditions, cols = group rate, facet by franchise×pSexual — all in
+    the file-served `dashboard.html`, no coordinator restart).
+
+- **`sweep/` — adaptive batch coordinator for the 225-cell selection×draft grid** (ported
+  and streamlined from the domestication project's runner). The factorial is
+  `birthWealthBias{0,.5,1,2,4} × individualBirthThreshold{0,2,5,7,9} × franchiseMode{off,A,B}
+  × pSexual{0,.5,1}` = 225 cells (ω tracks the null in each), into a dedicated collection
+  `select_draft_grid`. Collapsed domestication's driver+coordinator+queue into ONE
+  in-memory `coordinator.mjs` (HTTP `/claim` fewest-dispatched-first, `/complete`,
+  `/status`) that grows each cell's rep budget from the live coop CI until sufficient or
+  `maxN`. Adaptive stopping (`stats.mjs`) ported from their "sufficiency" test: splits a
+  bistable metric into `p(establish)` (Wilson CI) + `level|establish` (t CI) — reduces to
+  a plain coop-CI when unimodal, handles the bistable cells we expect. Metric = final mean
+  coop, `minN=3`. `worker.mjs` reuses the `vm` sim-loader (`headless.mjs`, same source as
+  `runner.js`) → writes the full packet to the shared Mongo `../Server` → reports coop.
+  `launch.mjs` spawns N workers; multi-machine (12 local + 5 on mint pointing at
+  `<main-box>:8090`). **Ports 8090/8091** so it runs beside domestication's 8088/8089.
+  Verified: grid = 225 unique cells; `stats.evaluate` correct on establish/collapse/
+  bistable/seed; coordinator dispatch+adaptive+terminate via a mock-worker loop; headless
+  runs a config end-to-end (packet + ω + coop, params applied). Fig dashboard deferred to
+  a next stage (raw aggregation → heatmaps). See `sweep/README.md`.
+  - **Launched live + operational hardening.** Ran it across both boxes: **12 workers local
+    + 5 on mint** (deployed via `tar | ssh mint`, `npm install`, detached `launch.mjs`;
+    17 workers, 2 hosts). Added **per-worker heartbeats** (chunked sim loop yields so I/O
+    flushes) feeding a live dashboard panel (cell + tick/50000 bar + pop + host), **dead-
+    worker reaping** (no heartbeat in `STALE_MS`=120s → reclaim the cell), and **Mongo as
+    source of truth**: the coordinator seeds cell samples from existing docs on startup
+    (restart-safe — never re-runs completed reps) and re-syncs every `SYNC_MS`=180s. Gotcha
+    logged: the Bash tool's network sandbox silently blocked the Server (DNS failed) —
+    runs need it disabled. Bistable cells already appearing (e.g. `b0_i0_fB_s0` = 0.79/0.09),
+    which the two-regime stopping rule is built for.
+  - **Dispatch/dupe hardening (live debugging).** (a) Dovetail: dispatch the cell with the
+    fewest COMPLETED reps not currently running, so every setting gets rep 1 before any gets
+    rep 2. (b) In-flight is derived from live **heartbeats + open claims**, not the
+    per-session `dispatched` counter — the counter resets on coordinator restart and caused
+    the new coordinator to re-hand-out cells still being run (duplicate dispatch); `needsMore`
+    keyed on Mongo-durable `samples`. (c) Anti-dupe margins: 15s startup grace (in-flight
+    heartbeats re-register before dispatch resumes) + 300s stale-timeout (a load-delayed
+    worker is never reaped and its cell re-run). Rule: **full-fleet restarts are dupe-safe;
+    coordinator-only restarts risk a transient dupe.** (d) Dashboard served from
+    `sweep/dashboard.html` (read per request) so UI tweaks need no coordinator restart. (e)
+    Grid cells show **mean coop** (viridis) not rep counts; **bistable** cells get a ◤ corner
+    wedge (regime split, % in tooltip); running cells an orange ring; sufficient a black box.
+    Grep gotcha: the tool defaulted to the `sweep/` subdir mid-session — pass explicit `path`.
+
+- **`birthWealthBias` (β) replaces the `wealthProportionalBirth` boolean + hot-path perf.**
+  Generalized wealth-weighted group births from a boolean to a continuous exponent:
+  `pickByStock` now draws a parent ∝ `stock^β` (`birthWealthBias`), so β=0 is uniform
+  (wealth-blind), β=1 is the old proportional behaviour, and β>1 is progressively steeper
+  toward the wealthy — a scale-invariant individual-selection dial to sweep. Updated
+  `parameters.js`/UI (checkbox→number), `world.js` birth site (the `? :` branch collapses),
+  `runs.js` (baseline β=0, wealth-parent β=1), and `dashboard.js` (with a fallback so old
+  records that stored the boolean still render). **Performance:** the per-tick vote was
+  doing 6 `median(voters.map(...))` per village = ~2.4M `map()`+`sort()` allocations/run.
+  Replaced with a reused scratch buffer + `medianInPlace` — a 3-way (Dutch-flag)
+  quickselect with a deterministic median-of-three pivot (no `Math.random`, so the global
+  RNG stream and thus run trajectories stay bit-identical). Validated against the old
+  `median` on 120k random cases (odd/even/duplicates/sorted/all-equal): exact match.
+  Also dropped the `sqrt` from `bestFitNeighbor` (added `policyDistanceSq` — ranking only,
+  monotonic → same argmin; kept `policyDistance` for the misfit probability). Profiled
+  before/after (4000 ticks, 100 villages): genePolicy −~20%/call, applyGenomePolicy
+  −~22%/call (GC relief), median sorts eliminated → ~20–25% off per-tick time. Smoke
+  tests unchanged (franchise-check PASS), all files `node --check` clean.
+
+- **ω (omega) inert tracer gene + sexual reproduction — separating genetic draft from
+  selection.** Investigating why ψ "selects" toward 1 (or 0) under `franchiseMode: 'off'`
+  where it's causally inert, the variance decomposition showed it isn't spreading drift
+  but a *concentrated* cloud sweeping to a random boundary — genetic **draft**: villages
+  are small/founder-bottlenecked and reproduction was fully **asexual** (one-parent clone
+  = complete linkage), so a neutral gene rides whichever village-lineage wins an economic
+  sweep. Two controls added to make this legible and testable:
+  - **ω**, an inert null gene (`agent.js`): mutates and is recorded through the full
+    covariance/histogram/tercile machinery but read by **no** dynamics. It's the draft
+    baseline — a real gene that merely tracks ω is drifting, not being selected. Added to
+    `PARAMETERS` (default 0.5), the genome, `geneNames`/`GENE_INFO`, endpoint sample, both
+    histogram grids (now 8 rows), UI + load/save. `POLICY` constant introduced in
+    `dashboard.js` so the voted-gene graphs stay 6-wide while ω rides in the histogram grid.
+  - **`pSexual`** (default 0): fraction of village group-births that are **sexual** —
+    `Agent.breedWith(mate)` recombines two fed villagers with per-gene independent
+    assortment; `reproduce(parent, pool)` dispatches sexual-vs-clone. Self-breeding and
+    founder cloning stay asexual. Recombination dissolves the linkage that enables draft.
+  - **Decisive result** (real regime, `off`, 15k ticks, 4 reps, within-pop SD; uniform
+    ≈ 0.289): inert genes de-concentrate under recombination — ω 0.168→0.275, ψ
+    0.141→0.253 — while the **selected** gene coop stays pinned (0.137→0.137). So the
+    coherent-cloud-to-a-pole *was* draft (breaks under recombination), but coop's tight
+    distribution is genuine selection (survives it). Recombination mechanics unit-checked
+    (breedWith 50/50 per-gene, 0 spurious; pSexual=0 → 100% clones). Smoke tests unchanged
+    (relative-mode & franchise-check PASS); all files `node --check` clean. Defaults keep
+    every stored run reproducible. `policyDistance` ψ-coupling left in deliberately (it's a
+    weak, non-directional nudge — see the 5-rep test — and the same draft hits every gene).
+
+- **Colour-blind-safe palette across every render (red↔green was illegible).** A
+  colleague with red/green CVD couldn't read the grid — the gene ramp, villager-wealth
+  ramp, single-pop grid, and the defector/cooperator tercile colours were all red→green,
+  the worst axis for the ~8% of men with the condition. Replaced the whole colour system:
+  new `cvdSeq(t)` in `util.js` is a **viridis** sequential ramp (dark purple → teal →
+  yellow) — perceptually uniform, CVD-safe on its discriminating endpoints, and monotonic
+  in lightness (verified luminance 30→82→111→157→215) so it also survives greyscale. New
+  `CVD` (Okabe–Ito qualitative palette) + `GENE_SERIES` (6 CVD-safe gene-series colours)
+  centralise the categorical choices. Swapped in everywhere: `world.js` gene legend bar,
+  grid cell colour, `drawVillagers` wealth, corr-graph series + legend, coop-tercile
+  histogram columns/legend; `observer.js` agent-wealth grid + the pNoGather/pNoConsume
+  traits graph; `dashboard.js` COOP_COL / CAT_COLOR / GENE_COL, the threshold overview
+  ramp (`ovColor`, was a red→blue hsl sweep through green), and the migration series.
+  Tercile scheme is now vermillion = defectors · grey = middlers · blue = cooperators
+  (warm-vs-cool, intuitive and CVD-distinct). Legend text updated to match (no more
+  "red"/"green" wording). Smoke tests unchanged (colour is draw-only); all render files
+  `node --check` clean.
+
+## 2026-07-16
+
+- **Percentile wealth-line mode for θ and ψ (`PARAMETERS.thresholdMode`).** Both the
+  "who pays" line (θ) and the "who votes" line (ψ) were computed as `frac · R` with
+  `R` = richest stock. Chris spotted the failure mode: under heavy skew (one rich, many
+  poor) — the very regime the model produces — `R` is set by the lone outlier, so a wide
+  band of θ/ψ all cut at that one agent while everyone else sits far below. The gene has
+  a large dead flat region exactly where it matters, and it lurches whenever the richest
+  agent's identity flips. New `thresholdMode: 'relative' | 'percentile'`; `'percentile'`
+  sets the line to the `frac`-th quantile of the stock distribution, so `frac` maps
+  evenly onto "fraction of the population below the line" whatever the shape, robust to
+  a single runaway agent. Cost: decoupled from absolute wealth (near-equality still taxes
+  the top `1−θ`). Default stays `'relative'` so stored runs reproduce; percentile is the
+  better-behaved parameterization for a bounded `[0,1]` evolved gene.
+- **Implementation.** New generic `quantile(arr, q)` in `util.js` (linear-interpolated,
+  q clamped, `quantile(a,0)=min / 1=max / 0.5=median`). New free function `wealthLine`
+  in `village.js` dispatches on the mode; `genePolicy` (ψ) and `applyGenomePolicy` (θ)
+  both route through it — single source for the cutoff. UI dropdown + load/save wiring;
+  θ label softened to "who-pays cutoff" since the mode now decides what the fraction means.
+  Ties at the cutoff fall together (equal wealth → gated identically). `worldsmoke`
+  franchise-check still PASS (relative mode byte-identical); an ad-hoc skew test confirms
+  the θ taxed-set now sweeps 16→12→8→4→1 across θ∈[0,0.9] in percentile mode vs a flat
+  1 across θ∈[0.1,0.95] in relative.
+
 ## 2026-06-28
 
 - **Individual-level fecundity options (+ newborns start at 0).** Two new knobs that

@@ -1,0 +1,56 @@
+<!doctype html><meta charset=utf8><title>select_draft_grid — coordinator</title>
+<style>body{font:13px system-ui,sans-serif;margin:16px;background:#fafafa;color:#222}
+h1{font-size:16px;margin:0 0 4px}#sum{margin:6px 0 12px;color:#444}h3{font-size:12px;margin:14px 0 6px;color:#555}
+.facets{display:flex;flex-wrap:wrap;gap:18px}.facet{border:1px solid #ddd;border-radius:6px;padding:8px;background:#fff}
+.facet h2{font-size:12px;margin:0 0 6px;font-weight:600}
+table.g{border-collapse:collapse}table.g td,table.g th{width:36px;height:26px;text-align:center;font-size:10px;border:1px solid #eee}
+th{color:#888;font-weight:500}.cell{font-weight:600;position:relative}.ax{color:#888;font-size:9px}
+.rn{position:absolute;right:1px;bottom:-1px;font-size:8px;font-weight:400;opacity:.6}
+.done{outline:2px solid #111;outline-offset:-2px}
+.act{box-shadow:inset 0 0 0 2px #E69F00}
+.bi::before{content:'';position:absolute;top:0;left:0;border:6px solid transparent;border-top-color:#CC79A7;border-left-color:#CC79A7}
+.leg{display:inline-block;vertical-align:middle;width:120px;height:10px;border:1px solid #ccc;
+background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}
+.wk{display:flex;flex-wrap:wrap;gap:6px}.w{width:150px;border:1px solid #e2e2e2;border-radius:5px;padding:5px 7px;background:#fff;font-size:11px}
+.w .c{font-weight:600}.w .m{color:#999;font-size:10px}.bar{height:5px;background:#eee;border-radius:3px;margin:3px 0;overflow:hidden}
+.bar>i{display:block;height:100%;background:#E69F00}.stale{opacity:.4}</style>
+<h1>select_draft_grid — adaptive coordinator</h1><div id=sum>connecting…</div>
+<h3 id=wkh>workers</h3><div class=wk id=wk></div>
+<h3>grid — cell = mean coop <span class=leg></span> 0…1 · small number = reps · boxed = sufficient · <span style="color:#CC79A7">◤</span> = bistable (hover for %)</h3><div class=facets id=f></div>
+<script>
+const INDIV=['base','b0.5','b1','b2','b4','i8','i6','i4','i2'], GRATE=['2','4','6'], FRAN=['off','A','B'], PSEX=['0','0.5','1'];
+function parse(id){const m=id.match(/^(.+?)_g(\d+)_f(\w+)_s([\d.]+)$/);return{ic:m[1],g:m[2],f:m[3],s:m[4]};}
+const VIR=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+function vir(t){t=Math.max(0,Math.min(1,t));const x=t*4,i=Math.floor(x),f=x-i,a=VIR[i],b=VIR[Math.min(4,i+1)];
+ return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
+function col(c){return c.coop==null?'#e8e8e8':vir(c.coop);}   // cell = mean coop (viridis, CVD-safe)
+function fmt(ms){if(ms==null||!isFinite(ms))return '?';let s=Math.round(ms/1000);if(s<90)return s+'s';let m=s/60;if(m<90)return (m<10?m.toFixed(1):m.toFixed(0))+'m';return (m/60).toFixed(1)+'h';}
+async function tick(){let st;try{st=await(await fetch('/status')).json();}catch{document.getElementById('sum').textContent='coordinator not responding';return;}
+ const active=new Set((st.workers||[]).map(w=>w.cell));
+ document.getElementById('sum').innerHTML=`<b>${st.sufficient}/${st.cells}</b> cells sufficient · ${st.completed} reps done · ${st.bistable} bistable · ${(st.workers||[]).length} running`
+   +` &nbsp;|&nbsp; elapsed ${fmt(st.uptimeMs)} · <b>${(st.ratePerMin||0).toFixed(1)}</b> reps/min · ~${st.remainingReps} reps left · <b>ETA ${fmt(st.etaMs)}</b>`;
+ // workers
+ const hs=Object.entries(st.hosts||{}).map(([h,n])=>h+' '+n).join(' · ')||'none';
+ document.getElementById('wkh').textContent='workers ('+(st.workers||[]).length+' live: '+hs+')';
+ const ws=(st.workers||[]).slice().sort((a,b)=>(a.host+a.cell).localeCompare(b.host+b.cell));
+ const tpsOf=w=>w.runMs>1000?w.tick/(w.runMs/1000):0;
+ const sortedTps=ws.map(tpsOf).filter(x=>x>0).sort((a,b)=>a-b);
+ const medTps=sortedTps.length?sortedTps[Math.floor(sortedTps.length/2)]:0;   // fleet median rate
+ document.getElementById('wk').innerHTML=ws.map(w=>{const pc=w.total?Math.min(100,100*w.tick/w.total):0;
+  const tps=tpsOf(w);const chug=tps>0&&medTps>0&&tps<0.5*medTps;   // <half the median rate = chugging
+  return `<div class="w ${w.ageMs>20000?'stale':''}"${chug?' style="background:#fdecea"':''}><div class=c title="${w.cell}">${w.cell}</div>
+   <div class=bar><i style="width:${pc.toFixed(0)}%"></i></div>
+   <div class=m>${fmt(w.runMs)} · ${tps.toFixed(0)} t/s${chug?' 🐌':''} · pop ${w.pop||0}</div>
+   <div class=m>${w.host}</div></div>`;}).join('')||'<i style="color:#999">no live workers yet</i>';
+ // grid
+ const by={};for(const c of st.detail){const p=parse(c.id);(by[p.f+'|'+p.s]||=({}))[p.ic+'|'+p.g]=c;}
+ let html='';for(const f of FRAN)for(const s of PSEX){html+=`<div class=facet><h2>franchise ${f} · pSexual ${s}</h2><table class=g><tr><th class=ax>rate→<br>indiv↓</th>`;
+  for(const g of GRATE)html+='<th>g'+g+'</th>';html+='</tr>';
+  for(const ic of INDIV){html+='<tr><th>'+ic+'</th>';for(const g of GRATE){const c=(by[f+'|'+s]||{})[ic+'|'+g]||{n:0,done:false,coop:null};
+   const cid=ic+'_g'+g+'_f'+f+'_s'+s;const txt=c.coop!=null?c.coop.toFixed(2):'';const tc=c.coop!=null&&c.coop>0.6?'#222':'#fff';
+   const ttl=cid+' n='+c.n+(c.bistable?' BISTABLE '+Math.round(c.p*100)+'% cooperate':'');
+   html+=`<td class="cell ${c.done?'done':''} ${active.has(cid)?'act':''} ${c.bistable?'bi':''}" style="background:${col(c)};color:${tc}" title="${ttl}">${txt}<span class=rn>${c.n||''}</span></td>`;}html+='</tr>';}
+  html+='</table></div>';}
+ document.getElementById('f').innerHTML=html;}
+tick();setInterval(tick,3000);
+</script>

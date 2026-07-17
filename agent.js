@@ -20,13 +20,20 @@ class Agent {
         this.pNoConsume = PARAMETERS.pNoConsume;   // boon: chance to skip consuming
 
         // Model 2 social genome (used by the 'genome' regime; see DEVPLAN.md).
-        // Five policy genes (voted into the village policy) + one behavioral gene.
+        // Six policy genes (voted into the village policy) + one behavioral gene + one
+        // inert null tracer.
         this.tau = PARAMETERS.tau;       // preferred collection rate
         this.theta = PARAMETERS.theta;   // preferred progressivity (exempt below theta*richest)
         this.phi = PARAMETERS.phi;       // preferred distribution: equal (0) <-> neediest (1)
         this.kappa = PARAMETERS.kappa;   // preferred hub retention (centralization)
         this.lambda = PARAMETERS.lambda; // preferred punishment: chance a defector's due is destroyed
+        this.psi = PARAMETERS.psi;       // preferred franchise: who votes (0 everyone <-> 1 only the wealthiest)
         this.coop = PARAMETERS.coop;     // behavioral: chance to actually pay in when asked
+        // Inert tracer: mutates and is recorded exactly like a real gene but is read by
+        // NO dynamics (not voted, not redistributed, not in migration/fitness). It is the
+        // null baseline — whatever omega does under a regime is pure drift/draft, so any
+        // real gene that merely tracks omega is drifting, not being selected. See DEVPLAN.
+        this.omega = PARAMETERS.omega;
 
         // When coupled, the two traits are one gene held equal (so the boon and
         // bane can't diverge); seed both from their average. Net drift is then 0.
@@ -42,7 +49,9 @@ class Agent {
         this.phi = Math.random();
         this.kappa = Math.random();
         this.lambda = Math.random();
+        this.psi = Math.random();
         this.coop = Math.random();
+        this.omega = Math.random();
     }
 
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
@@ -63,9 +72,12 @@ class Agent {
     }
 
     /**
-     * A mutated offspring. The boon/bane traits are inherited unchanged (frozen
-     * environment); the social genome (tau,theta,phi,kappa,lambda,coop) is
-     * inherited with Gaussian mutation — this is what evolves under selection.
+     * An ASEXUAL mutated offspring (one parent). The boon/bane traits are inherited
+     * unchanged (frozen environment); every social gene (tau,theta,phi,kappa,lambda,
+     * psi,coop) plus the inert omega tracer is inherited with Gaussian mutation. With
+     * one parent the whole genome is inherited as a block — complete linkage — so a
+     * selective sweep at one locus drags every other locus (including neutral ones)
+     * along with it (genetic draft). `breedWith` breaks that linkage.
      */
     spawnChild() {
         const child = new Agent();
@@ -79,9 +91,57 @@ class Agent {
         child.phi    = clamp01(this.phi + m());
         child.kappa  = clamp01(this.kappa + m());
         child.lambda = clamp01(this.lambda + m());
+        child.psi    = clamp01(this.psi + m());
         child.coop   = clamp01(this.coop + m());
+        child.omega  = clamp01(this.omega + m());
+        return child;
+    }
+
+    /**
+     * A SEXUAL offspring of `this` and `mate`: each gene is inherited independently
+     * from one parent or the other with equal probability (free recombination /
+     * independent assortment), then the social genome is mutated. Because loci
+     * re-assort each generation, a neutral gene no longer rides along with a selected
+     * one — this is the recombination that dissolves genetic draft. The frozen
+     * boon/bane pair is taken together from a single parent so a coupled pair stays
+     * coupled.
+     */
+    breedWith(mate) {
+        const child = new Agent();
+        const m = () => generateNormalSample(0, PARAMETERS.mutationStdev);
+        const from = key => (Math.random() < 0.5 ? this : mate)[key];   // independent per gene
+
+        const boonParent = Math.random() < 0.5 ? this : mate;   // keep boon/bane together
+        child.pNoGather = boonParent.pNoGather;                  // frozen
+        child.pNoConsume = boonParent.pNoConsume;                // frozen
+
+        child.tau    = clamp01(from('tau')    + m());
+        child.theta  = clamp01(from('theta')  + m());
+        child.phi    = clamp01(from('phi')    + m());
+        child.kappa  = clamp01(from('kappa')  + m());
+        child.lambda = clamp01(from('lambda') + m());
+        child.psi    = clamp01(from('psi')    + m());
+        child.coop   = clamp01(from('coop')   + m());
+        child.omega  = clamp01(from('omega')  + m());
         return child;
     }
 
     draw(ctx) {}
+}
+
+/**
+ * Produce one child of `parent`, drawn from `pool` (its village's fed residents).
+ * With probability PARAMETERS.pSexual the birth is sexual — `parent` recombines with
+ * a distinct random mate from the pool (`breedWith`); otherwise it's an asexual clone
+ * (`spawnChild`). A 50/50 mix (pSexual = 0.5) is the usual setting; pSexual = 0 is the
+ * original all-asexual model. Self-breeding (individual birth) and founder cloning stay
+ * asexual by nature and don't route through here. Free function: it uses no `this`.
+ */
+function reproduce(parent, pool) {
+    if (PARAMETERS.pSexual > 0 && pool && pool.length > 1 && Math.random() < PARAMETERS.pSexual) {
+        let mate = parent;
+        for (let i = 0; i < 8 && mate === parent; i++) mate = pool[randomInt(pool.length)];
+        if (mate !== parent) return parent.breedWith(mate);
+    }
+    return parent.spawnChild();
 }

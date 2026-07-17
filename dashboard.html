@@ -26,12 +26,17 @@
         run: <select id="runSelect"></select>
         <button id="query">Query</button>
         <button id="nextRun">Next Run &#9658;</button>
-        basin: <select id="basinFilter">
+        class: <select id="basinFilter">
             <option value="all">all reps</option>
-            <option value="coop">cooperators</option>
-            <option value="defect">defectors</option>
+            <option value="coop">coop basin</option>
+            <option value="defect">defect basin</option>
+            <option value="polar">polar (both)</option>
+            <option value="middling">middling</option>
         </select>
-        &#8805;<input id="basinThresh" value="0.5" size="3">
+        pole&#8805;<input id="poleThresh" value="0.9" size="3" title="fraction at one pole to call it a pure basin">
+        defect&lt;<input id="loEdge" value="0.3" size="3" title="coop below this = a defector">
+        coop&gt;<input id="hiEdge" value="0.7" size="3" title="coop above this = a cooperator">
+        polar&#8805;<input id="polarMin" value="0.2" size="3" title="min fraction at EACH pole to call it polar">
         <button id="coopOverview">Coop time-series (all runs)</button>
         <button id="download">Download CSV</button>
         <span id="info">—</span>

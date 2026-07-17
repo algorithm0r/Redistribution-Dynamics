@@ -7,8 +7,11 @@
  * steps through the runs. Pattern adapted from Domestication/graphs.js.
  */
 
-const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop'];
-const COOP_COL = { lo: '#d11', mid: '#a80', hi: '#1a1' };  // defectors / middlers / cooperators
+const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega'];
+// The six voted genes — for the policy-gene line graphs / corr(coop,·). Excludes coop
+// (behavioural) and omega (the inert tracer), which appear only in the histogram grid.
+const POLICY = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi'];
+const COOP_COL = { lo: CVD.vermillion, mid: CVD.grey, hi: CVD.blue };  // defectors / middlers / cooperators (CVD-safe)
 
 let socket, CTX, docsAll = [], docs = [], agg = null, reportingPeriod = 100;
 
@@ -75,13 +78,15 @@ function coopOverview() {
         names.forEach(name => {
             socket.emit('find', {
                 db: PARAMETERS.db, collection: collection(), query: { run: name },
-                projection: { run: 1, 'geneMeans.coop': 1, 'parameters.individualBirthThreshold': 1, 'parameters.wealthProportionalBirth': 1, 'parameters.reportingPeriod': 1 },
+                projection: { run: 1, 'geneMeans.coop': 1, 'parameters.individualBirthThreshold': 1, 'parameters.birthWealthBias': 1, 'parameters.wealthProportionalBirth': 1, 'parameters.reportingPeriod': 1 },
                 limit: 200, page: 0,
             }, res => {
                 if (res && res.ok && res.results.length) {
                     const r = res.results, p = r[0].parameters || {};
                     series.push({ name, coop: avgArrays(r.map(x => x.geneMeans && x.geneMeans.coop)),
-                                  th: p.individualBirthThreshold, wp: p.wealthProportionalBirth, reps: r.length });
+                                  th: p.individualBirthThreshold,
+                                  wp: p.birthWealthBias != null ? p.birthWealthBias : (p.wealthProportionalBirth ? 1 : 0),
+                                  reps: r.length });
                     if (p.reportingPeriod) reportingPeriod = p.reportingPeriod;
                 }
                 if (--pending === 0) drawOverview(series);
@@ -95,14 +100,14 @@ function coopOverview() {
 
 function ovRank(s) { return s.wp ? -1 : (s.th === 0 ? -2 : s.th); }
 function ovLabel(s) { return s.wp ? 'wealth-parent' : (s.th === 0 ? 'baseline' : 'th=' + s.th); }
-function ovColor(s) { return s.wp ? '#a0a' : (s.th === 0 ? '#000' : hsl(Math.round(240 * (s.th - 1) / 9), 70, 45)); }
+function ovColor(s) { return s.wp ? CVD.purple : (s.th === 0 ? '#000' : cvdSeq((s.th - 1) / 9)); }
 
 function drawOverview(series) {
     const ctx = CTX;
     ctx.clearRect(0, 0, 2400, 1300);
     series = series.filter(s => s.coop && s.coop.length).sort((a, b) => ovRank(a) - ovRank(b));
     ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 18px monospace';
-    ctx.fillText(`Mean cooperation over time — all runs in "${collection()}"  (low threshold = red → high = blue; baseline black, wealth-parent magenta)`, 20, 26);
+    ctx.fillText(`Mean cooperation over time — all runs in "${collection()}"  (low threshold = purple → high = yellow; baseline black, wealth-parent pink)`, 20, 26);
 
     const x = 60, y = 60, w = 2280, h = 1150;
     const maxLen = Math.max(...series.map(s => s.coop.length), 1);
@@ -147,7 +152,7 @@ function receiveDocs(arr) {
 }
 
 const CATS = ['coop', 'defect', 'polar', 'middling'];
-const CAT_COLOR = { coop: '#1a1', defect: '#c33', polar: '#a0a', middling: '#c80' };
+const CAT_COLOR = { coop: CVD.blue, defect: CVD.vermillion, polar: CVD.purple, middling: CVD.orange };
 
 function num(id, dflt) { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : dflt; }
 
@@ -266,14 +271,14 @@ function aggregate() {
     // averaged) 6x6 covariance. Degenerate (NaN) where coop has ~no variance —
     // i.e. committed worlds; meaningful in polar/mixed reps. Absent on old runs.
     a.coopCorr = {};
-    GENES.filter(g => g !== 'coop').forEach(g => a.coopCorr[g] = []);
+    POLICY.forEach(g => a.coopCorr[g] = []);
     a.hasCov = docs.some(d => Array.isArray(d.geneCovariance) && d.geneCovariance.length);
     if (a.hasCov) {
         const order = docs.find(d => d.geneOrder) ? docs.find(d => d.geneOrder).geneOrder : GENES;
         const ng = order.length, ci = order.indexOf('coop');
         const covDocs = docs.map(d => d.geneCovariance).filter(c => Array.isArray(c) && c.length);
         const len = Math.min(...covDocs.map(c => c.length));
-        const polic = GENES.filter(g => g !== 'coop');
+        const polic = POLICY;
         for (let t = 0; t < len; t++) {
             const M = Array.from({ length: ng }, () => new Array(ng).fill(0));
             covDocs.forEach(c => { for (let i = 0; i < ng; i++) for (let j = 0; j < ng; j++) M[i][j] += c[t][i][j]; });
@@ -300,12 +305,12 @@ function draw() {
     ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 17px monospace';
     ctx.fillText(`${docsAll[0].run}  (showing ${showing}: ${docs.length}/${docsAll.length})  —  ${c.coop} coop / ${c.defect} defect / ${c.polar} polar / ${c.middling} middling`, 20, 24);
     ctx.font = '13px monospace';
-    ctx.fillText(`indivBirthThreshold=${p.individualBirthThreshold}   wealthPropParent=${p.wealthProportionalBirth}   ` +
+    ctx.fillText(`indivBirthThreshold=${p.individualBirthThreshold}   birthWealthBias(β)=${p.birthWealthBias != null ? p.birthWealthBias : (p.wealthProportionalBirth ? 1 : 0)}   ` +
         `epoch=${p.epoch}   migrate r/m/s=${p.pMigrateRandom}/${p.pMigrateMisfit}/${p.pMigrateStarve}   ` +
         `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 840, 24);
 
     // Line graphs (five across the top).
-    const gy = 50, gw = 465, gh = 150, GENE_COL = ['#c33', '#3a3', '#36c', '#c80', '#90c'];
+    const gy = 50, gw = 465, gh = 150, GENE_COL = GENE_SERIES;
     const gx = i => 20 + i * (gw + 12);
     drawGraph(gx(0), gy, gw, gh, [
         { values: agg.population, color: '#000', label: 'pop' },
@@ -314,16 +319,16 @@ function draw() {
     drawGraph(gx(1), gy, gw, gh, CATS.map(cat => ({ values: agg._cats.means[cat], color: CAT_COLOR[cat], label: `${cat}(${c[cat]})` }))
         .concat([{ values: agg.geneMean.coop, color: '#000', label: 'shown' }]),
         { title: 'Mean coop by class', min: 0, max: 1 });
-    drawGraph(gx(2), gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
+    drawGraph(gx(2), gy, gw, gh, POLICY.map((g, i) =>
         ({ values: agg.geneMean[g], color: GENE_COL[i], label: g })),
         { title: 'Policy gene means', min: 0, max: 1 });
     drawGraph(gx(3), gy, gw, gh, [
-        { values: agg.mig.starve, color: '#1a1', label: 'starve' },
-        { values: agg.mig.misfit, color: '#c33', label: 'misfit' },
-        { values: agg.mig.random, color: '#36c', label: 'random' },
+        { values: agg.mig.starve, color: CVD.green, label: 'starve' },
+        { values: agg.mig.misfit, color: CVD.vermillion, label: 'misfit' },
+        { values: agg.mig.random, color: CVD.blue, label: 'random' },
     ], { title: 'Migrations / period (avg)', min: 0 });
     const covX = gx(4);
-    drawGraph(covX, gy, gw, gh, GENES.filter(g => g !== 'coop').map((g, i) =>
+    drawGraph(covX, gy, gw, gh, POLICY.map((g, i) =>
         ({ values: agg.coopCorr[g], color: GENE_COL[i], label: g })),
         { title: 'corr(coop, gene) over time', min: -1, max: 1 });
     if (!agg.hasCov) {
@@ -342,7 +347,7 @@ function draw() {
     ];
     const x0 = 20, gridY = 250, gap = 8;
     const cW = Math.floor((2400 - 2 * x0 - 4 * gap) / 5);
-    const hH = 140, hStep = 168;
+    const hH = 105, hStep = 125;   // 8 gene rows (omega added) fit within the 1300px canvas
 
     ctx.font = '11px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
     ctx.fillText('per-gene pooled histograms (value low→high, bottom→top). columns:', x0, gridY - 16);

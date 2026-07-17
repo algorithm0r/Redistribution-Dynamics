@@ -5,13 +5,16 @@ const GENE_INFO = {
     phi:    "phi  who receives  (0 all equally -> 1 neediest first)",
     kappa:  "kappa  chief's cut  (0 none -> 1 all to the hub)",
     lambda: "lambda  punish defectors  (0 never -> 1 always destroy)",
+    psi:    "psi  who votes  (0 everyone -> 1 only the wealthiest)",
     coop:   "coop  pay in when asked?  (0 always defect -> 1 always comply)",
+    omega:  "omega  INERT tracer  (affects nothing; the drift/draft baseline)",
 };
 
 /** Short gene labels for the (narrow) histograms. */
 const GENE_SHORT = {
     tau: "tau (tax rate)", theta: "theta (who pays)", phi: "phi (who gets it)",
-    kappa: "kappa (chief cut)", lambda: "lambda (punish)", coop: "coop (comply)",
+    kappa: "kappa (chief cut)", lambda: "lambda (punish)", psi: "psi (who votes)",
+    coop: "coop (comply)", omega: "omega (inert null)",
 };
 
 /**
@@ -84,7 +87,7 @@ class World {
     update() {
         const vs = this.villages();
         vs.forEach(v => v.step());
-        vs.forEach(v => this.reproduceOrFission(v));
+        vs.forEach(v => this.reproduceGroup(v));
         this.applyCatastrophes();
         this.cullEmpty();
         this.migrate();
@@ -125,25 +128,20 @@ class World {
         return Math.max(1, Math.round(PARAMETERS.birthThreshold + PARAMETERS.birthThresholdRate * v.pop));
     }
 
-    /** Spend growth points: birth below cap, fission at/above cap. */
-    reproduceOrFission(v) {
-        const cap = PARAMETERS.cap;
+    /** Spend growth points on group births, gated by the soft cap. A birth costs `th`
+     *  needs-met points and succeeds with prob birthProb(pop); on failure this tick's
+     *  attempt stops and the points bank (no cliff, no fission — see village.birthProb). */
+    reproduceGroup(v) {
         let guard = 10000;
         while (guard-- > 0) {
             const th = this.birthCost(v);   // recomputed each step: pop changes as it grows
             if (v.growthPoints < th) break;
-            if (v.pop < cap) {
-                const fed = v.agents.filter(a => !a.starved);
-                if (fed.length === 0) break;   // only needs-met villagers may parent; bank the points
-                v.growthPoints -= th;
-                const parent = PARAMETERS.wealthProportionalBirth ? pickByStock(fed) : fed[randomInt(fed.length)];
-                v.agents.push(parent.spawnChild());
-            } else {
-                const target = this.fissionTarget(v);
-                if (!target) break;          // nowhere to send a colony; sit at cap
-                v.growthPoints -= th;
-                this.fission(v, target);
-            }
+            const fed = v.agents.filter(a => !a.starved);
+            if (fed.length === 0) break;    // only needs-met villagers may parent; bank the points
+            if (Math.random() >= birthProb(v.pop)) break;   // soft cap: no birth, keep the points
+            v.growthPoints -= th;
+            const parent = pickByStock(fed);   // ∝ stock^birthWealthBias (β=0 → uniform)
+            v.agents.push(reproduce(parent, fed));   // sexual (recombine w/ a fed mate) w.p. pSexual, else clone
         }
     }
 
@@ -245,8 +243,9 @@ class World {
         let best = null, bestD = Infinity;
         for (const [r, c] of this.neighbors(v.row, v.col)) {
             const n = this.grid[r][c];
-            // empty cell = perfect fit (0); use the cached policy for occupied cells
-            const d = n ? policyDistance(a, n.cachedPolicy || n.policy || (n.cachedPolicy = n.enactedPolicy())) : 0;
+            // empty cell = perfect fit (0); use the cached policy for occupied cells.
+            // Squared distance: ranking only, so we skip the sqrt (monotonic → same argmin).
+            const d = n ? policyDistanceSq(a, n.cachedPolicy || n.policy || (n.cachedPolicy = n.enactedPolicy())) : 0;
             if (d < bestD) { bestD = d; best = [r, c]; }
         }
         return best;
@@ -273,7 +272,7 @@ class WorldDataManager {
 
         // Per gene, over time: mean + 20-bucket distribution, at BOTH the agent
         // level (every individual) and the village level (each village's median).
-        this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop'];
+        this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega'];
         this.geneMean = {}; this.geneHist = {};
         this.geneVillageMean = {}; this.geneVillageHist = {};
         this.geneNames.forEach(g => {
@@ -300,7 +299,7 @@ class WorldDataManager {
         // Correlation of coop with each policy gene over time (derived from the
         // covariance) — for the live observer's leading-edge plot. NaN where coop
         // has ~no variance (a committed world).
-        this.policyGenes = ['tau', 'theta', 'phi', 'kappa', 'lambda'];
+        this.policyGenes = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi'];
         this.coopCorr = {};
         this.policyGenes.forEach(g => this.coopCorr[g] = []);
     }
@@ -324,7 +323,7 @@ class WorldDataManager {
         const villageVals = villages.map(v => {
             const pol = v.policy || genePolicy(v.agents);
             return { tau: pol.tau, theta: pol.theta, phi: pol.phi, kappa: pol.kappa,
-                     lambda: pol.lambda, coop: median(v.agents.map(a => a.coop)) };
+                     lambda: pol.lambda, psi: pol.psi, coop: median(v.agents.map(a => a.coop)) };
         });
 
         this.geneNames.forEach(g => {
@@ -376,7 +375,7 @@ class WorldDataManager {
             return {
                 r: v.row, c: v.col, n: v.pop,
                 coop: v.pop ? v.agents.reduce((s, a) => s + a.coop, 0) / v.pop : 0,
-                g: [pol.tau, pol.theta, pol.phi, pol.kappa, pol.lambda],
+                g: [pol.tau, pol.theta, pol.phi, pol.kappa, pol.lambda, pol.psi],
                 gp: v.growthPoints,
             };
         }));
@@ -419,7 +418,7 @@ class WorldDataManager {
         }
         return tagged.slice(0, m).map(({ a, r, c }) => ({
             r, c, stock: a.stock,
-            g: [a.tau, a.theta, a.phi, a.kappa, a.lambda, a.coop],
+            g: [a.tau, a.theta, a.phi, a.kappa, a.lambda, a.psi, a.coop, a.omega],
         }));
     }
 
@@ -455,7 +454,7 @@ class WorldDataManager {
 }
 
 
-/** Draws the grid (cell hue = redistribution rate, brightness = fullness) + graphs. */
+/** Draws the grid (cell colour = the chosen gene via viridis, area = fullness) + graphs. */
 class WorldObserver {
     constructor(world, dm) {
         this.world = world;
@@ -467,8 +466,8 @@ class WorldObserver {
                       "Migr/period: starve·misfit·random", 0, 0, true),
             // corr(coop, gene) over time, in the space below the histogram grid.
             new Graph(gx, 1108, 644, 162, dm.policyGenes.map(g => dm.coopCorr[g]),
-                      "corr(coop, gene):  tau theta phi kappa lambda", -1, 1, false,
-                      ["#c33", "#3a3", "#36c", "#c80", "#90c"]),
+                      "corr(coop, gene):  tau theta phi kappa lambda psi", -1, 1, false,
+                      GENE_SERIES),
         ];
 
         // Per gene, a row of value-distribution heat-strips (low at bottom, high at
@@ -477,14 +476,14 @@ class WorldObserver {
         // The three middle columns are the gene's distribution within each coop
         // tercile, so a gene that correlates with cooperation shows its heat (and
         // mean line) shifting up from the defector column to the cooperator column.
-        const hy = 150, hstep = 158, hh = 128;
+        const hy = 150, hstep = 116, hh = 96;   // 8 gene rows (omega added) fit above the corr graph (y=1108)
         const ncol = 5, cgap = 6, hx0 = 1350;
         const cW = Math.floor((1994 - hx0 - (ncol - 1) * cgap) / ncol);
         const cols = [
             { key: 'all',  tag: 'all',  color: "#000000" },
-            { key: 'lo',   tag: 'def',  color: "#cc2222" },
-            { key: 'mid',  tag: 'mid',  color: "#9a7a00" },
-            { key: 'hi',   tag: 'coop', color: "#1f9e1f" },
+            { key: 'lo',   tag: 'def',  color: CVD.vermillion },
+            { key: 'mid',  tag: 'mid',  color: CVD.grey },
+            { key: 'hi',   tag: 'coop', color: CVD.blue },
             { key: 'vil',  tag: 'vil',  color: "#000000" },
         ];
         const COOP_LINE = { lo: "#ff4d4d", mid: "#ffd400", hi: "#46e646" };
@@ -535,10 +534,10 @@ class WorldObserver {
         ctx.fillText(`villages ${w.villages().length}   pop ${n}   ` +
                      `mean coop ${mean(a => a.coop).toFixed(2)}   tau ${mean(a => a.tau).toFixed(2)}`, 30, 52);
 
-        // Colour legend for the grid: a red->green bar = the chosen gene 0 -> 1.
+        // Colour legend for the grid: a viridis bar (CVD-safe) = the chosen gene 0 -> 1.
         const lx = 30, ly = 66, lw = 200, lh = 14;
         for (let i = 0; i < lw; i++) {
-            ctx.fillStyle = hsl(Math.round(120 * i / lw), 75, 50);
+            ctx.fillStyle = cvdSeq(i / lw);
             ctx.fillRect(lx + i, ly, 1, lh);
         }
         ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
@@ -546,7 +545,7 @@ class WorldObserver {
         const villagerView = PARAMETERS.displayMode === 'villagers';
         if (villagerView) {
             ctx.fillText(`each cell = its villagers; colour = absolute wealth on one shared scale`, lx + lw + 12, ly + 8);
-            ctx.fillText(`(red = 0  ·  middle = global average  ·  green = >= 2x average; same colour = same wealth anywhere)`, lx, ly + lh + 14);
+            ctx.fillText(`(dark purple = 0  ·  teal = global average  ·  yellow = >= 2x average; same colour = same wealth anywhere)`, lx, ly + lh + 14);
         } else {
             ctx.fillText(`cell colour = ${GENE_INFO[gene]}`, lx + lw + 12, ly + 8);
             ctx.fillText(`square size = village population (tiny = sparse, fills the cell = at cap)`, lx, ly + lh + 14);
@@ -574,17 +573,16 @@ class WorldObserver {
                     const value = gene === 'coop'
                         ? median(v.agents.map(a => a.coop))
                         : (v.policy || v.enactedPolicy())[gene];
-                    const hue = Math.round(120 * value);   // red = 0, green = 1
                     // Square AREA scales with population (full cell = at cap); the
-                    // colour shows the gene at full strength, centred in the cell.
+                    // colour (viridis, CVD-safe) shows the gene 0 -> 1, centred in the cell.
                     const full = cell - 2;
                     const size = full * Math.sqrt(Math.min(1, v.pop / PARAMETERS.cap));
                     const off = (full - size) / 2;
-                    // Backing is a neutral grey at the SAME lightness as the square,
-                    // so cell brightness doesn't track pop — only the coloured area does.
+                    // Backing is a neutral grey so cell brightness doesn't track pop —
+                    // only the coloured area does.
                     ctx.fillStyle = "#808080";
                     ctx.fillRect(x, y, full, full);
-                    ctx.fillStyle = hsl(hue, 75, 50);
+                    ctx.fillStyle = cvdSeq(value);
                     ctx.fillRect(x + off, y + off, size, size);
                 }
             }
@@ -594,7 +592,7 @@ class WorldObserver {
 
         // Colour legend for the corr(coop, gene) graph (+1 = cooperators want more,
         // -1 = defectors want more; blank = a committed world, coop variance ~0).
-        const corrCols = ["#c33", "#3a3", "#36c", "#c80", "#90c"], corrNames = ["tau", "theta", "phi", "kappa", "lambda"];
+        const corrCols = GENE_SERIES, corrNames = ["tau", "theta", "phi", "kappa", "lambda", "psi"];
         ctx.font = "12px monospace"; ctx.textAlign = "left";
         let clx = 1360;
         corrNames.forEach((nm, i) => { ctx.fillStyle = corrCols[i]; ctx.fillText(nm, clx, 1102); clx += nm.length * 7.5 + 14; });
@@ -602,13 +600,13 @@ class WorldObserver {
 
         // Legend for the per-gene histogram columns (one row per gene).
         ctx.font = "11px monospace"; ctx.textAlign = "left";
-        ctx.fillStyle = "#222";    ctx.fillText("per-gene columns:  all", 1350, 146);
-        ctx.fillStyle = "#cc2222"; ctx.fillText("defectors", 1505, 146);
-        ctx.fillStyle = "#222";    ctx.fillText("·", 1576, 146);
-        ctx.fillStyle = "#9a7a00"; ctx.fillText("middlers", 1586, 146);
-        ctx.fillStyle = "#222";    ctx.fillText("·", 1650, 146);
-        ctx.fillStyle = "#1f9e1f"; ctx.fillText("cooperators", 1660, 146);
-        ctx.fillStyle = "#222";    ctx.fillText("· villages   (coop terciles)", 1748, 146);
+        ctx.fillStyle = "#222";        ctx.fillText("per-gene columns:  all", 1350, 146);
+        ctx.fillStyle = CVD.vermillion; ctx.fillText("defectors", 1505, 146);
+        ctx.fillStyle = "#222";        ctx.fillText("·", 1576, 146);
+        ctx.fillStyle = CVD.grey;      ctx.fillText("middlers", 1586, 146);
+        ctx.fillStyle = "#222";        ctx.fillText("·", 1650, 146);
+        ctx.fillStyle = CVD.blue;      ctx.fillText("cooperators", 1660, 146);
+        ctx.fillStyle = "#222";        ctx.fillText("· villages   (coop terciles)", 1748, 146);
 
         this.geneHistograms.forEach(h => h.draw(ctx));
     }
@@ -627,7 +625,7 @@ class WorldObserver {
         for (let i = 0; i < k; i++) {
             const sr = Math.floor(i / side), sc = i % side;
             const level = Math.min(levels - 1, Math.floor(v.agents[i].stock / band));
-            ctx.fillStyle = hsl(Math.round(120 * level / (levels - 1)), 75, 50);
+            ctx.fillStyle = cvdSeq(level / (levels - 1));
             ctx.fillRect(x + sc * sub, y + sr * sub, sub - 0.5, sub - 0.5);
         }
     }

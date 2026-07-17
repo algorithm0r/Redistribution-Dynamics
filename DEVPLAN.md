@@ -240,7 +240,7 @@ dynamics in 5).
 
 ---
 
-### Model 2 — Villages & Group Selection (within-village mechanic built; grid pending)
+### Model 2 — Villages & Group Selection (built; grid live under sweep)
 
 A grid of **villages**, each running the within-village exchange over its own
 population every tick. Selection acts at two levels: *within* villages (defectors
@@ -248,22 +248,38 @@ out-earn cooperators) and *between* villages (which institutions let a village
 persist and spread on the grid). This is the multilevel-selection model; the grid
 + migration rate is the dial that decides which level wins.
 
-**The genome (6 genes, every value in [0,1]).** Five define the *institution*;
-one is *behavioral*.
+**The genome (7 genes, every value in [0,1]).** Six define the *institution* (five
+economic + one *constitutional*); one is *behavioral*.
 
 | gene | role | meaning |
 |---|---|---|
 | **τ** rate | policy | fraction of an eligible agent's **whole** stock collected |
-| **θ** threshold | policy | who pays: only agents with stock `> θ·R` (R = richest) are taxed (θ=0 everyone, θ=1 only the very top) — progressivity lives here |
+| **θ** threshold | policy | who pays: only agents above the θ **wealth-line** are taxed (θ=0 everyone, θ=1 only the very top) — progressivity lives here. The line is set by `PARAMETERS.thresholdMode` (see note below) |
 | **φ** focus | policy | distribute equally (0) ↔ neediest-first (1) |
 | **κ** hub | policy | share the hub (= current richest) keeps before the rest is distributed |
 | **λ** punish | policy | chance a defector's withheld due is destroyed (costly punishment) |
+| **ψ** franchise | policy (meta) | **who votes**: only agents at/above the ψ wealth-line are enfranchised (ψ=0 universal suffrage, ψ=1 only the wealthiest). Same wealth-line as θ but with `≥` so ψ=1 keeps the richest, not nobody. A *constitutional* gene — it doesn't move resources, it reshapes the electorate that decides the other five |
 | **coop** | behavioral | chance the agent actually pays in when the enacted policy asks |
+| **ω** omega | **null** | INERT tracer: mutates and is recorded exactly like a real gene but read by no dynamics (not voted, redistributed, migrated, or scored). The drift/draft baseline — whatever ω does under a regime is *pure* drift/draft, so any real gene that merely tracks ω is drifting, not being selected. See *Genetic draft* below |
+
+**Wealth-line mode** (`PARAMETERS.thresholdMode`, gates both θ and ψ; `wealthLine`
+in `village.js`). `'relative'` (default, original): the line = `frac · R`, `R` =
+richest stock. `'percentile'`: the line = the `frac`-th **quantile** of the stock
+distribution. Relative is anchored to absolute wealth but goes *numb under skew* —
+with one rich agent and many poor, a wide band of θ/ψ all cut at that lone agent, so
+the gene has a large flat region exactly in the unequal regime the model produces (and
+it lurches when the richest agent's identity flips). Percentile makes `frac` map evenly
+onto "fraction of the population below the line" whatever the shape, and is robust to a
+single runaway agent — at the cost of decoupling from absolute wealth (under near-equality
+it still taxes the top `1−θ` even though they're barely richer). Default stays `relative`
+so stored runs reproduce; percentile is the better-behaved parameterization for a bounded
+`[0,1]` evolved gene.
 
 **Within-village redistribution** (per tick, between gather and consume):
 1. **Enact policy.** Each policy gene is set for the village. Two governance
    models below; the resulting `(τ,θ,φ,κ,λ)` is applied uniformly this tick.
-2. **Collect.** R = richest stock. An agent is taxed only if `stock > θ·R`; an
+2. **Collect.** An agent is taxed only if `stock >` the θ wealth-line (see
+   *Wealth-line mode* above; default `θ·R`, R = richest); an
    eligible agent's due = `τ·stock` — a flat rate on **whole** wealth, not just the
    excess above the line (stochastically rounded to an integer, capped at stock). A
    **cooperator** (roll < `coop`) pays it into the pot. A **defector** withholds;
@@ -280,10 +296,23 @@ only by who defects and `λ`.
 **Two governance models (identical genome & partition; differ only in where the
 policy genes live and how they're inherited):**
 - **Model V (voting).** Policy genes live on **agents** as preferences; the
-  village's enacted policy is the per-gene **median** of its residents
-  (single-peaked scalars → stable, no Condorcet cycles). Inherited by individual
-  reproduction; policy is an emergent phenotype that drifts as the population
-  turns over.
+  village's enacted policy is the per-gene **median** of its **enfranchised**
+  residents (single-peaked scalars → stable, no Condorcet cycles). Inherited by
+  individual reproduction; policy is an emergent phenotype that drifts as the
+  population turns over.
+  - **Who is enfranchised** is itself voted, via ψ: the electorate is everyone
+    with `stock ≥ ψ·R`. Since ψ is both the gate and a thing being voted, a
+    `franchiseMode` param breaks the self-reference:
+    - **A (universal).** ψ is set by universal suffrage (median over *everyone*);
+      that ψ then gates the vote on the other genes. A village only narrows its
+      franchise if the whole population's median ψ rises — no minority capture.
+    - **B (entrenched, default).** *Last* tick's enacted ψ gates *this* tick's
+      whole vote, ψ included (bootstraps at ψ=0). A restrictive electorate keeps
+      itself restrictive — the wealthy can vote to stay in charge. This is the
+      thematically potent mode; A is the control. ψ is included in the migration
+      `policyDistance` (a misfit disagrees about *who votes* too). The live
+      question: does disenfranchisement co-evolve with lower redistribution —
+      i.e. is `corr(ψ, τ)` negative across villages?
 - **Model G (village genome).** Policy genes live on the **village** as a
   heritable unit (no voting); villagers are born into it. Inherited by village
   reproduction/colonization.
@@ -309,23 +338,31 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
   goes **extinct**, freeing the cell.
 - **Reproduction (needs-met growth points).** Each tick a village gains +1 point
   per **needs-met** villager (rewards size *and* equity; hoarding earns nothing
-  because the starving aren't counted). When `growthPoints ≥ threshold`, subtract
-  the threshold and, if `pop < cap`, **birth** one villager — a random needs-met
-  parent, genes inherited with mutation, endowed `initialStock`. The same signal
-  at `pop ≥ cap` triggers **fission** instead. The threshold is **affine in
-  village size**: `threshold = max(1, round(birthThreshold + birthThresholdRate ·
-  pop))`. With `birthThresholdRate = 0` the cost is flat and per-capita birth rate
-  is constant → **exponential** growth (the grid saturates in ~40–100 ticks). A
-  positive rate adds a per-villager cost so the absolute birth rate per village
-  becomes ~constant → **linear** growth, a density-dependent brake that keeps a
-  frontier of empty cells open longer (restoring migration's colonizing role).
-  Useful range `rate ∈ (0, 1]`; `rate = 1, base = 0` is "threshold equals pop";
-  `rate ≳ 2` over-brakes (growth ≈ death, villages can't fill).
-- **Fission.** Send a `fissionSize` fraction of the village (default 0.5 = at most
-  half) to an eligible neighbor — any cell with `pop < fissionMaxFraction · cap`
-  (default 0.5 = at most half full; empty included). Empty target → new village;
-  under-full target → colonists join (group-level gene flow). If no neighbor
-  qualifies, the village can't fission this tick and sits at cap.
+  because the starving aren't counted). When `growthPoints ≥ threshold`, a **birth**
+  is attempted: it **succeeds with prob `birthProb(pop) = (cap − pop)/(cap − 1)`**
+  (linear from 1 at pop 1 to 0 at pop ≥ cap — the *soft cap*), spending the threshold
+  points and adding one villager — a random needs-met parent (∝ `stock^birthWealthBias`),
+  genes inherited with mutation, endowed `initialStock`. On failure **no birth and no
+  points spent** (they bank until pop falls). The birth is
+  **asexual** (a mutated clone of the one parent) with prob `1 − pSexual`, or
+  **sexual** with prob `pSexual` (recombine with a second random needs-met villager —
+  each gene drawn independently from either parent, then mutated; see *Genetic draft*).
+  The threshold is **affine in village size**: `threshold = max(1, round(birthThreshold
+  + birthThresholdRate · pop))` — with the soft cap in place, `birthThresholdRate` is
+  now the **group-reproduction cost / group-selection strength** lever (lower = cheaper
+  group births = stronger group selection; swept in `balance_grid`).
+- **Soft cap** (`village.birthProb`, 2026-07 — replaced the hard cap + fission below).
+  A full village simply stops reproducing (no offspring, no resources spent) and resumes
+  as deaths open room — logistic, no cliff. Applies to **both** group births and
+  **individual** self-breeding (`individualBirths`, same `birthProb` gate — this also
+  fixed the pop-overflow where easy self-breeding blew villages past cap). Colonization
+  no longer needs fission: the grid fills via **migration** to empty cells (verified —
+  10 seed villages → 100/100). Note: **migration itself does not respect the cap**, so
+  popular villages can still exceed it (~1.7× cap observed); accepted for now.
+- ~~**Fission.**~~ *(deprecated 2026-07 by the soft cap — group births no longer trigger
+  fission; `reproduceGroup` replaced `reproduceOrFission`. `fission`/`fissionTarget`/
+  `fissionSize`/`fissionMaxFraction` are dead code/params, kept for now.)* Was: send a
+  `fissionSize` fraction to an eligible neighbor as a budding colony.
 - **Migration (3 independent vectors, each its own swept probability; one move
   per tick, priority starve → misfit → random).** Destinations may be **empty
   cells** (an empty cell = zero mismatch, so a misfit founds its own village):
@@ -337,20 +374,44 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
     neighbor (fallback random).
 - **Luck** set ~1% net positive (`pNoConsume − pNoGather ≈ 0.01`) so villages
   creep upward while starvation still bites (keeps `coop` under selection).
-- **Cap** is a hard gate (no probability blend): below cap, points → birth;
-  at/above cap, points → fission. Defaults: cap 100, `birthThreshold ≈ cap/2`,
-  `fissionSize` 0.5, `fissionMaxFraction` 0.5, social-gene mutation σ 0.02.
+- **Cap** is now a **soft** gate via `birthProb` (see *Soft cap* above), not the old
+  hard birth/fission cliff. Defaults: cap 100, social-gene mutation σ 0.02.
 
 This rule set *is* the multilevel selection: `coop` is selected within villages
 (via differential survival), the policy genes between villages (needs-met growth
 → fission/extinction). The migration probabilities tune which level wins.
 
+**Genetic draft (why a gene can look selected when it isn't), and the ω/sexual
+controls.** Reproduction is asexual (one parent → whole-genome clone) and villages are
+small, founded by few, and turn over by fission/extinction. That gives every locus a
+*tiny* effective population size and, crucially, **complete linkage**: with no
+recombination the whole genome is inherited as a block, so when one successful village
+lineage sweeps the grid its *entire* genome — including any neutral gene — sweeps with
+it. A neutral trait therefore doesn't diffuse and spread (as panmictic drift would); it
+**coheres as a low-variance cloud and fixes at a random boundary** (0 or 1, differing
+run to run), which is easy to misread as selection. Two controls disentangle this:
+- **ω (omega)** is an inert tracer — it drifts/drafts with zero causal effect, so it
+  marks the null. If a "real" gene's trajectory looks like ω's, it's draft, not
+  selection. (Confirmed empirically: in `franchiseMode: 'off'`, ψ is causally inert and
+  drafts to random poles exactly like ω; a single `off` run's ψ value is meaningless —
+  average replicates, which sit near 0.5.)
+- **`pSexual`** turns on sexual reproduction (per-gene independent assortment between
+  two fed villagers), which restores recombination and dissolves the linkage. Under
+  recombination a genuinely selected gene (e.g. `coop`) keeps its signal while a drafting
+  neutral gene relaxes back toward 0.5 and spreads. A 50/50 asexual/sexual mix is the
+  usual setting. (Within-village homogenization may still blunt this — an open question.)
+
 **Model G** then adds a village-level policy genome (no voting; village-replicator
 inheritance on fission) over the identical mechanics, for the V-vs-G comparison.
 
-**Status:** within-village mechanic built and verified (`genome` regime). **Next:**
-build the Model V grid (World + Village over the existing genome redistribution),
-then evolve the social genes.
+**Status:** Model V grid fully built, evolving, and under a live distributed sweep.
+Social genome τ,θ,φ,κ,λ,ψ,coop + inert tracer ω evolves; **soft-cap** reproduction
+(`birthProb`, replaced the hard cap + dead fission); sexual reproduction (`pSexual`);
+percentile/relative wealth-line modes. A headless adaptive coordinator (`sweep/`) runs
+parameter grids across machines (12 local + 5 mint), Mongo as source of truth. **Now
+running:** `balance_grid` (243 cells: individual-selection union × group-rate × franchise
+× pSexual). **Next:** analyze `balance_grid`; build the fig/aggregation dashboard (8091);
+Model G (village-level genome) for the V-vs-G comparison.
 
 ## Open questions
 
@@ -372,5 +433,11 @@ then evolve the social genes.
       mechanic implemented as the `genome` regime and verified.
 - [x] Model V grid built: villages, needs-met growth → birth/fission, extinction,
       three migration vectors, social-gene evolution; headless + browser.
-- [ ] Tune luck/params for a clear selection signal; run migration sweeps.
+- [x] Soft-cap reproduction (`birthProb`) replacing the hard cap + fission; ω tracer
+      gene + sexual reproduction (`pSexual`) to separate genetic draft from selection.
+- [x] Headless adaptive batch coordinator (`sweep/`): CI-driven dovetail dispatch,
+      heartbeats, Mongo-resume, multi-machine (local + mint), live dashboard.
+- [~] Tune luck/params for a clear selection signal; run sweeps. **In progress:**
+      `balance_grid` (243-cell individual-vs-group balance sweep) running.
+- [ ] Fig/aggregation dashboard (8091): coop/gene-means/ω heatmaps from `balance_grid`.
 - [ ] Model G: village-level policy genome (no voting) for the V-vs-G comparison.

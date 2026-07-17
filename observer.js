@@ -15,7 +15,7 @@ class Observer {
             new Graph(gx, 210, gw, gh, [dm.avgStockTimeSeries, dm.maxStockTimeSeries], "Avg / Max Stock", 0, 0, true),
             new Graph(gx, 380, gw, gh, [dm.hungerTimeSeries], "Cumulative Hunger", 0, 0, true),
             new Graph(gx, 550, gw, gh, [dm.avgPNoGatherTimeSeries, dm.avgPNoConsumeTimeSeries],
-                      "Avg traits: pNoGather (red) / pNoConsume (green)", 0, 1, false, ["#BB0000", "#00AA00"]),
+                      "Avg traits: pNoGather (vermillion) / pNoConsume (blue)", 0, 1, false, [CVD.vermillion, CVD.blue]),
         ];
         this.histogram = new Histogram(gx, 740, dm.stockDistribution,
             { label: "Stock distribution (low -> high)", width: gw, height: 150 });
@@ -57,9 +57,8 @@ class Observer {
         agents.forEach((a, i) => {
             const cx = x0 + (i % cols) * cell + cell / 2;
             const cy = y0 + Math.floor(i / cols) * cell + cell / 2;
-            // hue 0 (red, empty) -> 120 (green, richest), relative to current max
-            const hue = a.stock === 0 ? 0 : Math.round(120 * Math.min(1, a.stock / maxStock));
-            ctx.fillStyle = a.stock === 0 ? "#c62828" : hsl(hue, 70, 50);
+            // viridis (CVD-safe): dark purple = empty -> yellow = richest, relative to current max
+            ctx.fillStyle = cvdSeq(a.stock === 0 ? 0 : Math.min(1, a.stock / maxStock));
             ctx.beginPath();
             ctx.arc(cx, cy, r, 0, 2 * Math.PI);
             ctx.fill();
