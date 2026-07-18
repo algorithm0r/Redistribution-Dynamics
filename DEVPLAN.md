@@ -261,6 +261,7 @@ economic + one *constitutional*); one is *behavioral*.
 | **ψ** franchise | policy (meta) | **who votes**: only agents at/above the ψ wealth-line are enfranchised (ψ=0 universal suffrage, ψ=1 only the wealthiest). Same wealth-line as θ but with `≥` so ψ=1 keeps the richest, not nobody. A *constitutional* gene — it doesn't move resources, it reshapes the electorate that decides the other five |
 | **coop** | behavioral | chance the agent actually pays in when the enacted policy asks |
 | **ω** omega | **null** | INERT tracer: mutates and is recorded exactly like a real gene but read by no dynamics (not voted, redistributed, migrated, or scored). The drift/draft baseline — whatever ω does under a regime is *pure* drift/draft, so any real gene that merely tracks ω is drifting, not being selected. See *Genetic draft* below |
+| **T** term | policy (meta) | **how often we vote**: the voted election period. In franchise modes the median `term` gene maps [0,1] → [1, `termMax`] ticks and locks the constitution for that many ticks (institutional hysteresis); under franchiseMode 'off' the term is the fixed `constitutionTerm` and `term` drifts inert like ω. Sibling of ψ (who decides). See *Constitutional layer* below |
 
 **Wealth-line mode** (`PARAMETERS.thresholdMode`, gates both θ and ψ; `wealthLine`
 in `village.js`). `'relative'` (default, original): the line = `frac · R`, `R` =
@@ -413,6 +414,115 @@ running:** `balance_grid` (243 cells: individual-selection union × group-rate �
 × pSexual). **Next:** analyze `balance_grid`; build the fig/aggregation dashboard (8091);
 Model G (village-level genome) for the V-vs-G comparison.
 
+---
+
+### Constitutional layer — signed θ/ψ + termed constitutions (BUILT 2026-07-18)
+
+Two ideas that both push on the *constitutional* (meta) layer — the genes that
+reshape *who decides and how* rather than move resources. **Both are now built** and live
+under the `constitution_grid` sweep: signed filters (`signedThreshold` + `wealthGate`,
+village.js) on θ/ψ only (ρ deferred), and termed constitutions (the `term` meta-gene in
+agent.js + `Village.constitution`/`electedTerm` in village.js, world tick threaded in
+world.js). Defaults preserve the old model (`signedThreshold` off, `constitutionTerm` 1).
+The design notes below stand as the rationale; ρ (signed who-receives) remains unbuilt.
+
+#### 1. Signed wealth-line filters (filter either tail, not just the poor)
+
+Today every wealth-line gate is **one-sided on [0,1]**: raising the gene only ever
+filters out the **poor**. θ taxes only agents *above* its line (only the rich pay); ψ
+enfranchises only agents *at/above* its line (only the rich vote). We can never say
+"only the **poor** pay" or "only the **poor** vote." Generalize the gate to a **signed
+selector**: sign = which tail is excluded, magnitude = what fraction of that tail is cut.
+
+**Store it normalized to [0,1] for uniformity** (decided 2026-07-18) — every other gene
+lives in [0,1], and keeping this one there means mutation, clamping, `policyDistance`, and
+the load/save UI all stay unchanged. The gene `g ∈ [0,1]` maps to the signed selector
+`s = 2g − 1` internally:
+
+- `g = 0.5` (`s = 0`) → everyone included (the **neutral center**; symmetric mutation sits
+  here, so drift has no directional bias — matches the ω/inert-tracer logic).
+- `g > 0.5` (`s > 0`) → keep the **top**; filter out the poorest `|s|` fraction (today's
+  behaviour: only the rich pay / vote).
+- `g < 0.5` (`s < 0`) → keep the **bottom**; filter out the richest `|s|` fraction (the new
+  half: only the poor pay / vote).
+
+The [−1,1] framing above is just the readable form of `s`; on the genome and the wire the
+value is the plain [0,1] `g`.
+
+**What variables this works for.** It fits exactly the genes that are *already* a stock
+cutoff, and invents one more:
+
+- **θ (who pays)** — native fit. `+θ` = progressive (tax the rich, current); `−θ` =
+  **regressive** (tax only the poor — a head-tax / burden-on-the-bottom institution).
+- **ψ (who votes)** — native fit. `+ψ` = **plutocratic** franchise (wealth-restricted
+  suffrage, current); `−ψ` = **proletarian** franchise (disenfranchise the wealthy — only
+  the non-rich vote). The franchise can now be captured from *either* class; the live
+  `corr(ψ,τ)` question doubles.
+- **A new "who receives" gate (`ρ`?)** — does not exist yet, and is the most novel of the
+  three. Distribution currently always flows down (equal share + water-fill to the
+  poorest). A signed recipient gate makes `+ρ` = transfer to the poor (current) and
+  `−ρ` = **transfer upward** (bailouts / regressive capture — the pot redistributed *to*
+  the rich). Worth adding precisely because it's the institution the model can't
+  currently express.
+
+**Does NOT fit:** κ (hub concentration, not a population filter — the hub is by
+definition the single richest) and β/`birthWealthBias` (already a *continuous* wealth
+weighting, not a hard tail cut).
+
+**Tradeoffs to settle before building.**
+- Convention preserved: because the gene is stored as [0,1] `g` (mapped to `s = 2g − 1`
+  only where it's *used*), the "every gene ∈ [0,1]" convention holds — mutation σ,
+  clamping, `policyDistance` (√6 normalizer), and the load/save UI need **no** change. The
+  one cost is interpretive: 0.5, not 0, is "no filter," so read plots through the `s`
+  mapping.
+- **Strongly favours `thresholdMode: 'percentile'`.** The signed cut is clean as a
+  quantile (`+f` drops the bottom `f`, `−f` drops the top `f`). In `'relative'` mode the
+  negative side ("keep agents below `f·R`") is numb under exactly the skew the model
+  produces — it becomes "everyone except the one runaway," mirroring the known
+  relative-mode numbness. So this feature and percentile mode go together.
+
+#### 2. Constitutions (slow voting) + meta-voting on the term
+
+Right now `genePolicy` re-votes the median **every tick**, so the enacted policy tracks
+the median voter continuously and drifts smoothly with turnover. Instead: hold an
+election, **lock the result as the village constitution for a term of `T` ticks**, then
+re-elect. ("Burn in a vote for ~100 days" = `T ≈ 100`.)
+
+- **Why it's interesting — institutional hysteresis.** The sitting policy is fixed by the
+  electorate *and* wealth distribution *at election time*, then frozen while the economy
+  evolves under it. It grows steadily less representative until the next election — a
+  poor-elected floor persists as some voters get rich, a restrictive franchise outlives
+  the conditions that voted it in. Institutions become **sticky**, which is both more
+  realistic and a new source of dynamics (path dependence, mismatch pressure → migration).
+- **`T` is a dial between models.** `T = 1` recovers continuous Model V exactly. `T → ∞`
+  is a one-shot **founding vote** that never revisits — a democratically *chosen* fixed
+  village genome, a bridge toward Model G's heritable genome but set by ballot instead of
+  selection.
+- **Amplifies ψ entrenchment (mode B).** A constitution locks *who votes* for the whole
+  term, not just tick-to-tick — the wealthy can entrench a restrictive franchise for `T`
+  ticks at a stroke. The `corr(ψ,τ)` question gains a timescale axis.
+
+**Meta-voting: make `T` itself a voted constitutional gene.** `T` (the *term* gene) is
+the meta-gene for **how often we decide** — the sibling of ψ, the meta-gene for **who
+decides**. It inherits ψ's self-reference (do you vote on the term under the current
+constitution's frozen electorate?) and therefore the same `franchiseMode`-style **A /
+B / off** resolution and ω-style inert control.
+
+**The emerging constitutional layer.** These stack into a coherent meta-structure of
+genes that reshape the *decision process* rather than move resources:
+
+| meta-gene | question it decides |
+|---|---|
+| **ψ** franchise | *who* decides (the electorate) |
+| **T** term | *how often* they decide (constitutional stickiness) |
+| signed θ / ψ / ρ | *which class* each rule binds (incidence, franchise, receipt) |
+
+**Implementation sketch.** Village caches `constitution` + `electedAt`; `enactedPolicy()`
+returns the constitution unless `worldTick − electedAt ≥ T`, then re-votes and resets
+(needs the World tick threaded to the village). `T` mutates as an integer term (or a
+[0,1] gene scaled to a max term). Migration `policyDistance` may want to include `T`
+(a misfit disagrees about *how often to vote* too).
+
 ## Open questions
 
 - Scope of v1: a single exchange type (employment) vs. several from the start.
@@ -441,3 +551,9 @@ Model G (village-level genome) for the V-vs-G comparison.
       `balance_grid` (243-cell individual-vs-group balance sweep) running.
 - [ ] Fig/aggregation dashboard (8091): coop/gene-means/ω heatmaps from `balance_grid`.
 - [ ] Model G: village-level policy genome (no voting) for the V-vs-G comparison.
+- [ ] Signed wealth-line filters (−1…1) for θ / ψ + a new "who receives" gate ρ, so a
+      rule can filter *either* tail (regressive tax, proletarian franchise, upward
+      transfer); favours percentile mode. *(Proposed 2026-07-18.)*
+- [ ] Constitutions: lock the vote for a term `T` (institutional hysteresis; `T=1`
+      recovers continuous Model V, `T→∞` = founding vote), then make `T` a meta-voted
+      constitutional gene. *(Proposed 2026-07-18.)*

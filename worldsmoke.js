@@ -97,3 +97,50 @@ for (const s of scenarios) {
         `off tau ${off.tau.toFixed(2)} (want 0.90) | ${ok ? 'PASS' : 'FAIL'}`
     );
 }
+
+// ── Signed wealth-line check (θ/ψ can filter EITHER tail) ────────────────────
+// Distinct stocks: poor {1,2,3} want high tau (0.9), rich {100,101} want none (0.1).
+// With signedThreshold, ψ<0.5 = proletarian (only the poor vote), ψ>0.5 = plutocratic
+// (only the rich), ψ=0.5 = everyone. Deterministic (no RNG in genePolicy).
+{
+    const ctx = createCtx();
+    const P = ctx.PARAMETERS;
+    P.signedThreshold = true; P.thresholdMode = 'percentile'; P.franchiseMode = 'B';
+    const mk = (stock, tau) => { const a = new ctx.Agent(); a.stock = stock; a.tau = tau; return a; };
+    const agents = [mk(1, 0.9), mk(2, 0.9), mk(3, 0.9), mk(100, 0.1), mk(101, 0.1)];
+    const prole   = ctx.genePolicy(agents, { psi: 0.3 }).tau;   // s<0: drop richest -> poor vote
+    const pluto   = ctx.genePolicy(agents, { psi: 0.7 }).tau;   // s>0: drop poorest -> rich vote
+    const neutral = ctx.genePolicy(agents, { psi: 0.5 }).tau;   // s=0: everyone -> poor majority
+    const ok = Math.abs(prole - 0.9) < 1e-9 && Math.abs(pluto - 0.1) < 1e-9 && Math.abs(neutral - 0.9) < 1e-9;
+    console.log(
+        `signed-check      | proletarian(psi=.3) tau ${prole.toFixed(2)} (want 0.90) | ` +
+        `plutocratic(psi=.7) tau ${pluto.toFixed(2)} (want 0.10) | ` +
+        `neutral(psi=.5) tau ${neutral.toFixed(2)} (want 0.90) | ${ok ? 'PASS' : 'FAIL'}`
+    );
+}
+
+// ── Constitution check (T locks the vote for a term; voted T maps 0-1 -> 1..termMax) ──
+{
+    const ctx = createCtx();
+    const P = ctx.PARAMETERS;
+    Object.assign(P, { spatial: true, franchiseMode: 'off', constitutionTerm: 100, idCounter: 0 });
+    const mkA = () => { const a = new ctx.Agent(); a.stock = 10; return a; };
+    const v = new ctx.Village(0, 0, [mkA(), mkA(), mkA()]);
+    v.step(0);                                              // founding election at tick 0
+    const c0 = v.constitution, term0 = v.term;
+    v.step(1); v.step(50);                                  // within the term: no re-vote
+    const locked = v.constitution === c0 && v.electedAt === 0;
+    v.step(100);                                            // term elapsed: re-vote
+    const revoted = v.electedAt === 100 && v.constitution !== c0;
+    // Voted term under a franchise: term gene 0.5 -> ~midpoint of [1, termMax].
+    P.franchiseMode = 'A';
+    const va = new ctx.Village(0, 0, [mkA(), mkA(), mkA()]);   // agents' term gene defaults to 0.5
+    va.step(0);
+    const wantVoted = Math.round(1 + 0.5 * (P.termMax - 1));
+    const votedOK = Math.abs(va.term - wantVoted) <= 1;
+    const ok = term0 === 100 && locked && revoted && votedOK;
+    console.log(
+        `constitution-check| off T=${term0} (want 100) | locked ${locked} | re-voted@T ${revoted} | ` +
+        `voted T ${va.term} (want ~${wantVoted}) | ${ok ? 'PASS' : 'FAIL'}`
+    );
+}

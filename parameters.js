@@ -38,6 +38,9 @@ const PARAMETERS = {
     coop: 1.0,       // compliance: chance an agent pays in when asked
     omega: 0.5,      // INERT null tracer gene — mutates & is recorded but read by no
                      // dynamics; the drift/draft baseline to compare real genes against
+    term: 0.5,       // constitutional TERM meta-gene: preferred election period. Voted (in
+                     // franchise modes) into the village constitution term T via [0,1] ->
+                     // [1, termMax]; inert under franchiseMode 'off' (T = constitutionTerm).
 
     // Who votes on the franchise gene psi itself (breaks the self-reference):
     //   'off' disabled  — psi ignored, everyone always votes (the pre-psi control)
@@ -53,6 +56,22 @@ const PARAMETERS = {
     //   'percentile' — the fraction-th quantile of the stock distribution (evenly
     //                  sensitive across [0,1] and robust to one runaway agent)
     thresholdMode: 'relative',
+
+    // Signed wealth-lines. When true, theta ("who pays") and psi ("who votes") become
+    // SIGNED filters: the gene g in [0,1] maps to s = 2g-1, so 0.5 = neutral (everyone
+    // included), g>0.5 filters out the poorest |s| fraction (progressive / plutocratic —
+    // the one-sided default), g<0.5 filters out the richest |s| fraction (regressive /
+    // proletarian — the new half). Favours thresholdMode 'percentile' (the negative side
+    // is numb under 'relative' skew). false = the original one-sided [0,1] gate. See DEVPLAN.
+    signedThreshold: false,
+
+    // Constitution term T: how long an election result is locked as the village constitution
+    // before re-voting. T=1 re-votes every tick (continuous Model V, the original behaviour);
+    // large T is a one-shot founding vote. Under franchiseMode 'off' T is this fixed value;
+    // under 'A'/'B' T is VOTED — the term gene, median of the electorate mapped [0,1] ->
+    // [1, termMax]. See DEVPLAN 'Constitutions'.
+    constitutionTerm: 1,
+    termMax: 50000,          // the voted term gene [0,1] maps linearly to [1, termMax] ticks
 
     // Evolution: when on, a starving agent dies and is replaced by a mutated
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.

@@ -2,6 +2,42 @@
 
 Newest entries at the top.
 
+## 2026-07-18 — constitutional layer: signed θ/ψ + termed constitutions (+ term meta-gene)
+
+**Done:** Built the two DEVPLAN "Proposed extensions." (1) **Signed θ/ψ** — new
+`wealthGate()` in village.js; the [0,1] gene maps to s=2g−1 where used (0.5 neutral, >0.5
+filters the poor = progressive/plutocratic, <0.5 filters the rich = regressive/proletarian).
+Behind `signedThreshold` (default off), favours `thresholdMode: 'percentile'`. (2)
+**Constitution term T** — `Village` caches `constitution`/`electedAt`/`term` and re-votes only
+every T ticks (world tick threaded through `step()`); T=1 == continuous Model V, large T =
+one-shot founding vote. Under franchise 'off' T = fixed `constitutionTerm`; under 'A'/'B' T is
+VOTED via a new **`term` meta-gene** ([0,1] → [1, termMax=50000], `1+g·(termMax−1)`). `term`
+added to genome (agent.js), recording/endpoint/covariance (world.js geneNames, now 9 genes),
+observer + fig dashboard gene grids. Not in `policyDistance` (kept 6-gene, like ω) so the
+off+T=1 path is unchanged. **Ran the `analyze` review of balance_grid first** (coop is rare —
+14/243; needs franchise-off + weak/no individual selection + strong group selection; cooperative
+worlds co-evolve high λ punish, high φ needs-first, low κ hub-keep, progressive θ; ω flat =
+real selection not drift). That corner shaped the new sweep.
+
+**Changed:** agent.js, village.js, world.js, parameters.js (+`signedThreshold`,
+`constitutionTerm`, `termMax`, `term` gene — browser UI inputs deferred; defaults preserve
+current behaviour), dashboard.js (9-gene grid). New `sweep/grid-constitution.mjs` →
+`constitution.json`. Also folded in the fig-dashboard layout polish (1px-per-pixel histograms
+via integer columns, canvas rendered at real size = no scrollbar/scaling, shorter figure).
+
+**State:** `worldsmoke` **PASS** on all three — franchise-check (defaults reproduce the old
+mechanism), signed-check (proletarian ψ=.3 → poor win, plutocratic ψ=.7 → rich win), and
+constitution-check (T=100 locks between elections, re-votes at term, voted term .5 → 25001).
+**Live now:** `constitution_grid` sweep (45 cells: individual {base,i8,i6} × group-rate {1,2,3}
+× franchise/term {off@T1, off@T100, off@T50k, A, B}; signed θ/ψ on, percentile, pSexual 0) —
+17 workers / 2 hosts on the new headless, Mongo `redistribution_dynamics.constitution_grid`.
+Caveat: the fig-dashboard grid parser still expects the balance_grid id layout — new cells
+(`base_g1_foff_T1`, `i8_g2_fA`) don't lay out in the facet view yet (next).
+
+**Next:** upgrade the fig dashboard grid/parser for the constitution axes; analyze
+`constitution_grid` as it fills (does signed/proletarian redistribution or a locked constitution
+open new coop regions?).
+
 ## 2026-07-17 — headless sim ~7–10× faster: vm sandbox → main-realm execution
 
 **Done:** Chased down why headless sweep runs chug (15–30 min) while the browser rips

@@ -7,7 +7,7 @@
  * steps through the runs. Pattern adapted from Domestication/graphs.js.
  */
 
-const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega'];
+const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega', 'term'];
 // The six voted genes — for the policy-gene line graphs / corr(coop,·). Excludes coop
 // (behavioural) and omega (the inert tracer), which appear only in the histogram grid.
 const POLICY = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi'];
@@ -318,7 +318,7 @@ function draw() {
         `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 840 * S, 24 * S);
 
     // Line graphs (five across the top).
-    const gy = 50 * S, gw = 465 * S, gh = 150 * S, GENE_COL = GENE_SERIES;
+    const gy = 44 * S, gw = 465 * S, gh = 120 * S, GENE_COL = GENE_SERIES;
     const gx = i => (20 + i * (465 + 12)) * S;
     drawGraph(gx(0), gy, gw, gh, [
         { values: agg.population, color: '#000', label: 'pop' },
@@ -353,9 +353,9 @@ function draw() {
         { key: 'hi', tag: 'coop', color: COOP_COL.hi },
         { key: 'vil', tag: 'vil', color: '#000' },
     ];
-    const x0 = 20 * S, gridY = 250 * S, gap = 8 * S;
+    const x0 = 20 * S, gridY = 210 * S, gap = 8 * S;
     const cW = Math.floor((W - 2 * x0 - 4 * gap) / 5);
-    const hH = 105 * S, hStep = 125 * S;   // 8 gene rows (omega added) fit within the canvas height
+    const hH = 68 * S, hStep = 86 * S;   // 9 gene rows (omega + term); shorter so the figure isn't tall-empty
 
     ctx.font = `${Math.round(11 * S)}px monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
     ctx.fillText('per-gene pooled histograms (value low→high, bottom→top). columns:', x0, gridY - 16 * S);

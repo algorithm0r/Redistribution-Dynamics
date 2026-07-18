@@ -57,6 +57,42 @@ function wealthLine(agents, frac) {
     return frac * agents.reduce((m, a) => Math.max(m, a.stock), 0);
 }
 
+/**
+ * The set of agents that PASS a wealth-line gate on gene value `g` — the shared primitive
+ * behind θ's "who pays" and ψ's "who votes".
+ *
+ *   signedThreshold OFF (original): a one-sided cut. Keep agents at/above (`useGe`) or
+ *     strictly above (`!useGe`) `wealthLine(g)`. g=0 keeps everyone; g=1 keeps only the top.
+ *   signedThreshold ON: g maps to the signed selector s = 2g−1 (0.5 = neutral). s>0 keeps
+ *     the TOP, dropping the poorest |s| (progressive/plutocratic — the one-sided default);
+ *     s<0 keeps the BOTTOM, dropping the richest |s| (regressive/proletarian — the new half);
+ *     s=0 keeps everyone. Cleanest in thresholdMode 'percentile' (see wealthLine note).
+ *
+ * `fallbackAll` (default true): if the gate comes out empty, return everyone — right for the
+ * franchise (an empty electorate is meaningless). Pass false for the tax base (an empty one
+ * just collects nothing). Returns `agents` itself (no allocation) whenever the gate admits all.
+ * Free function: no `this`.
+ */
+function wealthGate(agents, g, useGe, fallbackAll = true) {
+    if (!PARAMETERS.signedThreshold) {
+        const line = wealthLine(agents, g);
+        if (line <= 0) return agents;                                   // line below everyone
+        const kept = agents.filter(useGe ? a => a.stock >= line : a => a.stock > line);
+        return (kept.length === 0 && fallbackAll) ? agents : kept;
+    }
+    const s = 2 * g - 1;
+    if (s > -1e-9 && s < 1e-9) return agents;                           // neutral center: everyone
+    if (s > 0) {                                                        // keep the top; drop poorest |s|
+        const line = wealthLine(agents, s);
+        if (line <= 0) return agents;
+        const kept = agents.filter(useGe ? a => a.stock >= line : a => a.stock > line);
+        return (kept.length === 0 && fallbackAll) ? agents : kept;
+    }
+    const line = wealthLine(agents, 1 + s);                             // keep the bottom; drop richest |s|
+    const kept = agents.filter(useGe ? a => a.stock <= line : a => a.stock < line);
+    return (kept.length === 0 && fallbackAll) ? agents : kept;
+}
+
 // Reused scratch buffer for the per-gene medians below — refilled each call, so the
 // vote costs no per-tick map()+sort() allocations (it ran ~2.4M times/run). Grows on
 // demand; workers each get their own vm context and use is single-threaded, so sharing
@@ -71,21 +107,20 @@ function medianOf(agents, key) {
 }
 
 function genePolicy(agents, prevPolicy) {
-    if (agents.length === 0) return { tau: 0, theta: 0, phi: 0, kappa: 0, lambda: 0, psi: 0 };
+    if (agents.length === 0) return { tau: 0, theta: 0, phi: 0, kappa: 0, lambda: 0, psi: 0, term: 0 };
 
     const mode = PARAMETERS.franchiseMode;
-    // The franchise line: 'off' is universal (0); 'A' uses this tick's universal-
-    // suffrage psi; 'B' uses last tick's enacted psi (0 at bootstrap, no prior policy).
-    const franchise = mode === 'off' ? 0
-        : mode === 'A' ? medianOf(agents, 'psi')
-        : (prevPolicy ? prevPolicy.psi : 0);
-
-    // The electorate: everyone at or above the franchise line (>= so psi=1 keeps
-    // the richest, not nobody). Fall back to the whole village if it comes out empty.
-    // Line <= 0 means everyone qualifies (stocks are >= 0), so skip the filter alloc.
-    const threshold = wealthLine(agents, franchise);
-    let voters = threshold <= 0 ? agents : agents.filter(a => a.stock >= threshold);
-    if (voters.length === 0) voters = agents;
+    // The electorate. 'off': everyone (psi ignored). 'A': gated by this tick's universal-
+    // suffrage psi. 'B': gated by the sitting constitution's psi (prevPolicy; neutral at
+    // bootstrap = universal). wealthGate applies the (possibly signed) psi wealth-line and
+    // falls back to the whole village if the gate is empty (never an empty electorate).
+    let voters;
+    if (mode === 'off') voters = agents;
+    else {
+        const neutral = PARAMETERS.signedThreshold ? 0.5 : 0;   // "everyone" in each mode
+        const franchise = mode === 'A' ? medianOf(agents, 'psi') : (prevPolicy ? prevPolicy.psi : neutral);
+        voters = wealthGate(agents, franchise, true);
+    }
 
     return {
         tau: medianOf(voters, 'tau'),
@@ -96,7 +131,18 @@ function genePolicy(agents, prevPolicy) {
         // Enacted psi: in B it's the sitting electorate's own median (the franchise
         // they vote for themselves); in A/off it's the universal median (inert in off).
         psi: mode === 'B' ? medianOf(voters, 'psi') : medianOf(agents, 'psi'),
+        // Voted term: the electorate's median term gene. Mapped to the constitution term T
+        // (via electedTerm) only in franchise modes; inert under 'off' (T = constitutionTerm).
+        term: medianOf(voters, 'term'),
     };
+}
+
+/** The constitution term T (ticks) for a village. Under franchiseMode 'off' it's the fixed
+ *  PARAMETERS.constitutionTerm; otherwise the voted term gene mapped [0,1] -> [1, termMax]. */
+function electedTerm(policy) {
+    if (PARAMETERS.franchiseMode === 'off') return Math.max(1, PARAMETERS.constitutionTerm);
+    const g = policy && Number.isFinite(policy.term) ? policy.term : 0.5;
+    return Math.max(1, Math.round(1 + g * (PARAMETERS.termMax - 1)));
 }
 
 /** Apply the genome-encoded redistribution policy to one population, in place.
@@ -107,14 +153,14 @@ function applyGenomePolicy(agents, policy) {
 
     const { tau, theta, phi, kappa, lambda } = policy || genePolicy(agents);
 
-    // Collect a flat tau of WHOLE wealth from everyone above the theta "who pays"
-    // line (theta=0 -> everyone with stock; theta=1 -> only the very richest).
-    // Progressivity now lives entirely in the eligibility line, not in marginal
-    // bracketing. Cooperators pay; defectors withhold and may be punished (due destroyed).
-    const threshold = wealthLine(agents, theta);
+    // Collect a flat tau of WHOLE wealth from the theta "who pays" tax base. One-sided
+    // theta: 0 -> everyone, 1 -> only the very richest. Signed theta: 0.5 -> everyone,
+    // >0.5 -> tax the top (progressive), <0.5 -> tax the bottom (regressive). No empty-
+    // fallback — an empty tax base simply collects nothing. Progressivity lives in the
+    // eligibility line. Cooperators pay; defectors withhold and may be punished (due destroyed).
+    const payers = wealthGate(agents, theta, false, false);
     let pot = 0;
-    for (const a of agents) {
-        if (a.stock <= threshold) continue;
+    for (const a of payers) {
         const due = Math.min(a.stock, stochasticRound(tau * a.stock));
         if (due <= 0) continue;
         if (Math.random() < a.coop) { a.stock -= due; pot += due; }
@@ -217,6 +263,11 @@ class Village {
         this.col = col;
         this.agents = agents || [];
         this.growthPoints = 0;
+        // Constitution (termed voting): the frozen enacted policy, the tick it was elected,
+        // and its term T in ticks. Null until the first step elects one; T=1 re-votes each tick.
+        this.constitution = null;
+        this.electedAt = 0;
+        this.term = 1;
     }
 
     get pop() { return this.agents.length; }
@@ -230,11 +281,19 @@ class Village {
     /** One within-village tick: gather -> redistribute -> consume -> score -> die.
      *  The enacted policy is computed once here and cached on `this.policy` for
      *  reuse by drawing, migration, and data collection this tick. */
-    step() {
+    step(worldTick) {
         this.agents.forEach(a => a.gather());
-        // Pass the prior policy so mode-B franchise gates on last tick's enacted psi
-        // (entrenchment); mode A ignores it and recomputes psi by universal suffrage.
-        this.policy = genePolicy(this.agents, this.policy);
+        // Constitution: re-vote only when the term has elapsed (or at founding / if no tick
+        // is threaded). Between elections the frozen constitution is applied to the evolving
+        // economy — institutional hysteresis. T=1 re-votes every tick == the original
+        // continuous Model V. Mode-B franchise gates on the sitting constitution's psi, so
+        // entrenchment now spans the whole term, not just tick-to-tick.
+        if (this.constitution == null || worldTick == null || (worldTick - this.electedAt) >= this.term) {
+            this.constitution = genePolicy(this.agents, this.constitution);
+            this.electedAt = worldTick == null ? 0 : worldTick;
+            this.term = electedTerm(this.constitution);
+        }
+        this.policy = this.constitution;   // enacted policy this tick = the (frozen) constitution
         applyGenomePolicy(this.agents, this.policy);
         this.agents.forEach(a => a.consume());
 

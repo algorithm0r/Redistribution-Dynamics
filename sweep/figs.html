@@ -10,8 +10,8 @@
  h1{font-size:15px;margin:0 0 4px}#bar{margin:4px 0 10px;color:#444}
  #bar input{font:12px monospace;width:120px}#bar>*{margin-right:10px}
  .layout{display:flex;gap:8px;align-items:flex-start}
- #gridwrap{flex:0 0 auto}#figwrap{flex:1 1 auto;min-width:0;overflow:hidden}
- .facets{display:flex;flex-wrap:wrap;gap:12px;max-width:560px}
+ #gridwrap{flex:0 0 auto}#figwrap{flex:1 1 auto;min-width:0;overflow-x:auto;overflow-y:hidden}
+ .facets{display:grid;grid-template-columns:repeat(3,auto);gap:10px;justify-content:start}   /* content-width: no trailing whitespace */
  .facet{border:1px solid #ddd;border-radius:6px;padding:6px;background:#fff}
  .facet h2{font-size:10px;margin:0 0 4px;font-weight:600;color:#555}
  table.g{border-collapse:collapse}table.g td,table.g th{width:30px;height:22px;text-align:center;font-size:9px;border:1px solid #eee}
@@ -51,7 +51,7 @@
  <div id="gridwrap">
   <div class="facets" id="facets"><i>loading grid…</i></div>
  </div>
- <div id="figwrap"><canvas id="chart" width="1200" height="650"></canvas></div>
+ <div id="figwrap"><canvas id="chart" width="1500" height="625"></canvas></div>
 </div>
 <script>
 const INDIV=['base','b0.5','b1','b2','b4','i8','i6','i4','i2'], GRATE=['2','4','6'], FRAN=['off','A','B'], PSEX=['0','0.5','1'];
@@ -138,8 +138,10 @@ async function loadRun(run){
 // draw() reads canvas.width/height and lays out to fit. Redraw the loaded run on resize.
 function sizeCanvas(){
  const fw=document.getElementById('figwrap'),cv=document.getElementById('chart');
- const w=Math.max(700,Math.floor(fw.clientWidth-4));
- cv.width=w;cv.height=Math.round(w*1300/2400);
+ // Fixed readable width so plots don't squish; if the pane is narrower, #figwrap scrolls (last
+ // plot peeks); if wider, grow to fill. Height from a shorter 2400x1000 reference.
+ const w=Math.max(1500,Math.floor(fw.clientWidth-4));
+ cv.width=w;cv.height=Math.round(w*1000/2400);
  if(typeof agg!=='undefined'&&agg&&typeof docs!=='undefined'&&docs&&docs.length){CTX=cv.getContext('2d');draw();}
 }
 let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(sizeCanvas,120);});

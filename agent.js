@@ -34,6 +34,12 @@ class Agent {
         // null baseline — whatever omega does under a regime is pure drift/draft, so any
         // real gene that merely tracks omega is drifting, not being selected. See DEVPLAN.
         this.omega = PARAMETERS.omega;
+        // Constitutional TERM meta-gene: preferred election period. In franchise modes it is
+        // voted into the village's constitution term T (median term gene -> ticks via
+        // [0,1] -> [1, termMax]); under franchiseMode 'off' T is the fixed
+        // PARAMETERS.constitutionTerm and term drifts inert (recorded like omega). Sibling of
+        // psi: psi is *who* decides, term is *how often* they decide. See DEVPLAN 'Constitutions'.
+        this.term = PARAMETERS.term;
 
         // When coupled, the two traits are one gene held equal (so the boon and
         // bane can't diverge); seed both from their average. Net drift is then 0.
@@ -52,6 +58,7 @@ class Agent {
         this.psi = Math.random();
         this.coop = Math.random();
         this.omega = Math.random();
+        this.term = Math.random();
     }
 
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
@@ -94,6 +101,7 @@ class Agent {
         child.psi    = clamp01(this.psi + m());
         child.coop   = clamp01(this.coop + m());
         child.omega  = clamp01(this.omega + m());
+        child.term   = clamp01(this.term + m());
         return child;
     }
 
@@ -123,6 +131,7 @@ class Agent {
         child.psi    = clamp01(from('psi')    + m());
         child.coop   = clamp01(from('coop')   + m());
         child.omega  = clamp01(from('omega')  + m());
+        child.term   = clamp01(from('term')   + m());
         return child;
     }
 

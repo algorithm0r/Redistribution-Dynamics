@@ -1,43 +1,56 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-07-17
+Updated: 2026-07-18
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close)
 
-Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release,
-pushed to `origin`. Later drift reads as `v0.1.0-N-g<sha>`.
+Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release.
+Since then: main-realm headless (~7–10× faster), the fig server (:8091), and the
+constitutional layer (below). Later drift reads as `v0.1.0-N-g<sha>`.
 
 ## Stage
-Model V (grid of villages, evolved redistribution genome) fully built and **live under a
-distributed adaptive parameter sweep**. Reproduction model just switched hard cap → **soft
-cap**. Draft-vs-selection controls (ω tracer, sexual reproduction) added.
+Model V live. Added a **constitutional (meta) layer**: signed θ/ψ filters (either tail) and
+**termed constitutions** with a voted **term (T)** meta-gene. Distributed adaptive sweep +
+fig server (:8091) both in use. `balance_grid` (243 cells) complete; `constitution_grid`
+(45 cells) now running.
 
 ## State
-- **Builds/runs.** `worldsmoke` franchise-check **PASS**; `smoketest` Ginis stable @ session work.
-- `medianInPlace` verified == old `median` on 120k random cases (odd/even/dupes/sorted/all-equal).
-- Recombination unit-checked (per-gene 50/50; `pSexual`=0 → 100% clones).
-- Soft-cap headless test: mean village pop ~74 (< cap 100), total 12k→7.4k, grid fills 100/100.
-- **Live experiment:** `balance_grid` sweep running — 17 workers (12 `DESKTOP-QQL4VJJ` + 5
-  `mint`), no dupes, dovetailing. Coordinator on `:8090` (dashboard at http://localhost:8090/).
-  Data → Mongo `redistribution_dynamics.balance_grid` via `research.climbinggiants.com:8888`.
+- **Builds/runs.** `worldsmoke` **PASS** ×3: franchise-check (defaults == old mechanism),
+  signed-check (proletarian ψ=.3 → poor win, plutocratic ψ=.7 → rich win), constitution-check
+  (T=100 locks between elections, re-votes at term, voted term .5 → 25001).
+- Defaults preserve the old model: `signedThreshold` off, `constitutionTerm` 1, `term` drifts
+  inert like ω. `term` is the 9th recorded gene (genome, covariance, endpoint, dashboards).
+- **Live experiment:** `constitution_grid` — 17 workers (12 `DESKTOP-QQL4VJJ` + 5 `mint`) on
+  the main-realm headless. Coordinator `node coordinator.mjs constitution.json` on `:8090`.
+  Data → Mongo `redistribution_dynamics.constitution_grid`.
+- **Prior:** `balance_grid` complete (243/243, ~2210 reps at minN 5). Analysis: coop is rare
+  (14/243), needs franchise-off + weak/no individual selection + strong group selection;
+  cooperative worlds co-evolve high λ (punish), high φ (needs-first), low κ (hub-keep),
+  progressive θ; ω flat (real selection, not drift). This shaped the new sweep.
 
 ## Metrics
-- Sweep: 243 cells = individual union (9: base + β{0.5,1,2,4} + ind{2,4,6,8}) × group-rate
-  {2,4,6} × franchise{off,A,B} × pSexual{0,0.5,1}. Adaptive stop: minN 3, maxN 60, coop CI
-  target ±0.03 (two-regime Wilson-p + t-level, handles bistable cells).
-- Perf: genePolicy −~20%/call, applyGenomePolicy −~22%/call → ~20–25% faster/tick.
+- `constitution_grid`: 45 cells = individual {base, i8, i6} × group-rate {1,2,3} ×
+  franchise/term {off@T1, off@T100, off@T50k, A(voted), B(voted)}. Fixed: signed θ/ψ on,
+  thresholdMode percentile, pSexual 0. Adaptive stop minN 5, maxN 60, coop CI ±0.03.
+- Term mapping: voted term gene [0,1] → [1, termMax=50000] ticks (`1 + g·(termMax−1)`).
 
 ## Branches
-`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics.
+`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. Local
+commits ahead of origin (unpushed).
 
 ## Open
-- Migration ignores the cap → villages reach ~1.7× cap (accepted for now; could soft-gate migration-in).
-- `fission`/`fissionTarget`/`fissionSize`/`fissionMaxFraction` are dead code/params post-soft-cap.
-- Fig/aggregation dashboard (8091) not built.
+- **Fig dashboard grid parser still expects the balance_grid id layout** (`ic_g#_f#_s#`), so
+  the new cells (`base_g1_foff_T1`, `i8_g2_fA`) don't lay out in the facet view — per-cell
+  `/agg` figures work, the grid navigator needs new axes. (Next.)
+- Browser UI inputs for `signedThreshold`/`constitutionTerm`/`term` not added (defaults hold;
+  the sweep sets them via config).
+- `term` intentionally NOT in `policyDistance` (kept 6-gene, like ω) — migration-on-term is a
+  future option (DEVPLAN).
+- Migration ignores the cap → villages reach ~1.7× cap (accepted).
 
 ## Next action
-Analyze `balance_grid` as cells fill; build the fig dashboard (coop/gene-means/ω heatmaps
-over the grid). Iterate UI via `sweep/dashboard.html` (file-served, no restart); coordinator
-logic changes need a **full-fleet** restart (coordinator-only risks a transient dupe).
+Upgrade the fig server/dashboard grid for the constitution axes (individual × group-rate ×
+franchise/term). Analyze `constitution_grid` as it fills: does signed/proletarian
+redistribution or a locked constitution open new cooperative regions?
 
 ## Blockers
 None. (Live-network ops require the Bash sandbox disabled — DNS/socket are blocked otherwise.)

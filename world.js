@@ -8,13 +8,14 @@ const GENE_INFO = {
     psi:    "psi  who votes  (0 everyone -> 1 only the wealthiest)",
     coop:   "coop  pay in when asked?  (0 always defect -> 1 always comply)",
     omega:  "omega  INERT tracer  (affects nothing; the drift/draft baseline)",
+    term:   "term  election period  (voted -> constitution term T; inert under franchise off)",
 };
 
 /** Short gene labels for the (narrow) histograms. */
 const GENE_SHORT = {
     tau: "tau (tax rate)", theta: "theta (who pays)", phi: "phi (who gets it)",
     kappa: "kappa (chief cut)", lambda: "lambda (punish)", psi: "psi (who votes)",
-    coop: "coop (comply)", omega: "omega (inert null)",
+    coop: "coop (comply)", omega: "omega (inert null)", term: "term (election period)",
 };
 
 /**
@@ -86,7 +87,7 @@ class World {
 
     update() {
         const vs = this.villages();
-        vs.forEach(v => v.step());
+        vs.forEach(v => v.step(this.tick));   // thread the world tick so villages can term-limit their constitution
         vs.forEach(v => this.reproduceGroup(v));
         this.applyCatastrophes();
         this.cullEmpty();
@@ -272,7 +273,7 @@ class WorldDataManager {
 
         // Per gene, over time: mean + 20-bucket distribution, at BOTH the agent
         // level (every individual) and the village level (each village's median).
-        this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega'];
+        this.geneNames = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega', 'term'];
         this.geneMean = {}; this.geneHist = {};
         this.geneVillageMean = {}; this.geneVillageHist = {};
         this.geneNames.forEach(g => {
@@ -418,7 +419,7 @@ class WorldDataManager {
         }
         return tagged.slice(0, m).map(({ a, r, c }) => ({
             r, c, stock: a.stock,
-            g: [a.tau, a.theta, a.phi, a.kappa, a.lambda, a.psi, a.coop, a.omega],
+            g: [a.tau, a.theta, a.phi, a.kappa, a.lambda, a.psi, a.coop, a.omega, a.term],
         }));
     }
 
@@ -476,7 +477,7 @@ class WorldObserver {
         // The three middle columns are the gene's distribution within each coop
         // tercile, so a gene that correlates with cooperation shows its heat (and
         // mean line) shifting up from the defector column to the cooperator column.
-        const hy = 150, hstep = 116, hh = 96;   // 8 gene rows (omega added) fit above the corr graph (y=1108)
+        const hy = 150, hstep = 106, hh = 88;   // 9 gene rows (omega + term) fit above the corr graph (y=1108)
         const ncol = 5, cgap = 6, hx0 = 1350;
         const cW = Math.floor((1994 - hx0 - (ncol - 1) * cgap) / ncol);
         const cols = [
