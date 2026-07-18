@@ -2,6 +2,34 @@
 
 Newest entries at the top.
 
+## 2026-07-17 — headless sim ~7–10× faster: vm sandbox → main-realm execution
+
+**Done:** Chased down why headless sweep runs chug (15–30 min) while the browser rips
+through the same high-pop configs. Root cause: `sweep/headless.mjs` ran the sim in a
+`vm.createContext` sandbox, where the hot loop's constant `PARAMETERS.*`/global reads go
+through the contextified global proxy V8 won't inline — vs fast native globals in the
+browser. Benchmarked vm-vs-native on the same sim: **7.2×** (fair interleaved, both under
+sweep contention) / **8.2×** / **10.3×** (two validations). Fixed by loading the sim into
+the **main V8 realm** via indirect `eval` (same `const/let/class→var` rewrite, same
+browser-global shims) instead of vm — safe because each worker is one process running one
+config at a time and `runConfig()` fully resets `PARAMETERS`+`idCounter` between runs (as
+the browser reuses globals across runs). Restarted the whole live fleet on it: 12 desktop
+(coordinator kept up — no dupes) + 5 mint (scp'd the file, Node 18, not a git checkout).
+
+**Changed:** `sweep/headless.mjs` (vm → main-realm indirect-eval; expanded header comment).
+`runner.js` left on vm, untouched. `~/.claude/conventions.md` updated with the perf caveat
+(the "share sim files via vm" convention now notes vm's ~7–10× hot-loop tax + main-realm
+alternative). Project memory `vm-sandbox-7x-slowdown.md` added.
+
+**State:** live-confirmed. Desktop cells now ~480–1270 ticks/s (were ~60–220); mint runs
+finish in ~70–100s (were ~400–540s). Validation: identical packet shape (all 8 gene keys
+incl ω), same coop basins vs vm path — difference is pure RNG noise (identical JS). Fix is
+committed; `balance_grid` sweep still filling. Not yet applied: `runner.js` (RD) and
+domestication's `runner/headless.mjs` carry the same vm tax.
+
+**Next:** analyze `balance_grid` as it fills (now much faster); optionally port the same
+fix to `runner.js` / domestication if their run times matter.
+
 ## 2026-07-17 — session close: soft-cap model + distributed adaptive sweep (also: draft controls, perf, CVD palette)
 
 **Done:** (1) `thresholdMode` relative|percentile for θ/ψ wealth-lines. (2) CVD-safe
