@@ -36,7 +36,7 @@
 <body>
 <h1>Redistribution Dynamics — Fig Server</h1>
 <div id="bar">
- collection <input id="collection" value="balance_grid">
+ collection <input id="collection" value="constitution_grid">
  <button id="reload">Reload grid</button>
  <button id="colorize" title="scan Mongo once to colour every cell by mean coop (slow; cached after)">Colorize all</button>
  <label><input type="checkbox" id="force"> force re-aggregate</label>
@@ -54,8 +54,22 @@
  <div id="figwrap"><canvas id="chart" width="1500" height="625"></canvas></div>
 </div>
 <script>
-const INDIV=['base','b0.5','b1','b2','b4','i8','i6','i4','i2'], GRATE=['2','4','6'], FRAN=['off','A','B'], PSEX=['0','0.5','1'];
-const parse=id=>{const m=id.match(/^(.+?)_g(\d+)_f(\w+)_s([\d.]+)$/);return m?{ic:m[1],g:m[2],f:m[3],s:m[4]}:null;};
+// Facet layouts per sweep collection: facets (outer grids) × rows × cols, and a parser that
+// maps a cell id -> {facet,row,col}. Add a new sweep by adding an entry here.
+const _mk=(k,l)=>({key:k,label:l==null?k:l});
+const LAYOUTS={
+ balance_grid:{ rowLabel:'ind', colLabel:'rate',
+  facets:['off','A','B'].flatMap(f=>['0','0.5','1'].map(s=>_mk(f+'|'+s,`franchise ${f} · pSexual ${s}`))),
+  rows:['base','b0.5','b1','b2','b4','i8','i6','i4','i2'].map(k=>_mk(k)),
+  cols:['2','4','6'].map(k=>_mk(k,'g'+k)),
+  parse:id=>{const m=id.match(/^(.+?)_g(\d+)_f(\w+)_s([\d.]+)$/);return m?{facet:m[3]+'|'+m[4],row:m[1],col:m[2]}:null;} },
+ constitution_grid:{ rowLabel:'ind', colLabel:'rate',
+  facets:[_mk('foff_T1','off · T=1'),_mk('foff_T100','off · T=100'),_mk('foff_T50k','off · T=50k'),_mk('fA','franchise A · T voted'),_mk('fB','franchise B · T voted')],
+  rows:['base','i8','i6'].map(k=>_mk(k)),
+  cols:['1','2','3'].map(k=>_mk(k,'g'+k)),
+  parse:id=>{const m=id.match(/^(base|i8|i6)_g(\d+)_(foff_T\w+|fA|fB)$/);return m?{facet:m[3],row:m[1],col:m[2]}:null;} },
+};
+const layoutFor=()=>LAYOUTS[coll()]||LAYOUTS.balance_grid;
 const VIR=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
 function vir(t){t=Math.max(0,Math.min(1,t));const x=t*4,i=Math.floor(x),f=x-i,a=VIR[i],b=VIR[Math.min(4,i+1)];
  return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
@@ -90,14 +104,16 @@ async function loadGrid(url){
  document.getElementById('src').textContent=`grid: ${st.source||(st.running!=null?'coordinator (live)':'?')}`;
  renderStatus(st);
  const active=new Set((st.workers||[]).map(w=>w.cell));   // cells a worker is running right now
- const by={};for(const c of (st.detail||[])){const p=parse(c.id);if(p)(by[p.f+'|'+p.s]||=({}))[p.ic+'|'+p.g]=c;}
+ const L=layoutFor();
+ const grid={};for(const c of (st.detail||[])){const p=L.parse(c.id);if(p)grid[p.facet+'|'+p.row+'|'+p.col]=c;}
  let html='';
- for(const f of FRAN)for(const s of PSEX){
-  html+=`<div class=facet><h2>franchise ${f} · pSexual ${s}</h2><table class=g><tr><th class=ax>rate→<br>ind↓</th>`;
-  for(const g of GRATE)html+='<th>g'+g+'</th>';html+='</tr>';
-  for(const ic of INDIV){html+='<tr><th>'+ic+'</th>';
-   for(const g of GRATE){const c=(by[f+'|'+s]||{})[ic+'|'+g]||{n:0,done:false,coop:null};
-    const cid=ic+'_g'+g+'_f'+f+'_s'+s;const txt=c.coop!=null?c.coop.toFixed(2):'';
+ for(const F of L.facets){
+  html+=`<div class=facet><h2>${F.label}</h2><table class=g><tr><th class=ax>${L.colLabel}→<br>${L.rowLabel}↓</th>`;
+  for(const col of L.cols)html+='<th>'+col.label+'</th>';html+='</tr>';
+  for(const row of L.rows){html+='<tr><th>'+row.label+'</th>';
+   for(const col of L.cols){const c=grid[F.key+'|'+row.key+'|'+col.key];
+    if(!c){html+='<td style="background:#f4f4f4"></td>';continue;}
+    const cid=c.id,txt=c.coop!=null?c.coop.toFixed(2):'';
     const tc=c.coop!=null&&c.coop>0.6?'#222':'#fff';const bg=c.coop==null?'#e8e8e8':vir(c.coop);
     html+=`<td class="cell ${c.done?'done':''} ${active.has(cid)?'act':''} ${c.bistable?'bi':''} ${cid===selected?'sel':''}" data-run="${cid}"
       style="background:${bg};color:${tc}" title="${cid} · n=${c.n||0}${c.bistable?' · BISTABLE':''}">${txt}<span class=rn>${c.n||''}</span></td>`;}

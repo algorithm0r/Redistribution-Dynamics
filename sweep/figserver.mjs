@@ -182,14 +182,19 @@ async function aggForRun(collection, run, force) {
 // Grid state direct from Mongo — so the fig server works AFTER the sweep (when the coordinator
 // has exited). Mirrors coordinator.syncFromMongo: one projected pass over the collection, group
 // final coop by run, then per grid.json cell compute n / mean coop / sufficiency. Cached ~30s.
-const GRID_FILE = fileURLToPath(new URL('./grid.json', import.meta.url));
-const gridCells = () => { try { return JSON.parse(fs.readFileSync(GRID_FILE, 'utf8')); } catch { return []; } };
+// Each sweep collection has its own generated cell-list file (see sweep/*.mjs generators).
+const GRID_FILES = { balance_grid: 'grid.json', constitution_grid: 'constitution.json' };
+const gridCells = collection => {
+    try { return JSON.parse(fs.readFileSync(fileURLToPath(new URL('./' + (GRID_FILES[collection] || 'grid.json'), import.meta.url)), 'utf8')); }
+    catch { return []; }
+};
 const gridCachePath = collection => path.join(CACHE_DIR, `_grid__${sane(collection)}.json`);
-// Instant, no Mongo: the cell layout from grid.json, coop uncoloured. The page colours cells
-// lazily from each /agg click; a full scan (?full=1) fills them all in and persists to cache.
+// Instant, no Mongo: the cell layout from the collection's grid file, coop uncoloured. The page
+// colours cells lazily from each /agg click; a full scan (?full=1) fills them all in and caches.
 function bareGrid(collection) {
-    return { cells: gridCells().length, sufficient: 0, source: 'grid.json',
-        detail: gridCells().map(c => ({ id: c.id, n: 0, done: false, coop: null, bistable: false })) };
+    const cells = gridCells(collection);
+    return { cells: cells.length, sufficient: 0, source: GRID_FILES[collection] || 'grid.json',
+        detail: cells.map(c => ({ id: c.id, n: 0, done: false, coop: null, bistable: false })) };
 }
 let gridCache = { at: 0, collection: null, data: null };
 async function gridFromMongo(collection) {
@@ -205,7 +210,7 @@ async function gridFromMongo(collection) {
         for (const d of docs) { const c = d.geneMeans && d.geneMeans.coop, v = Array.isArray(c) ? lastFinite(c) : c; if (d.run != null && isFinite(v)) (byRun[d.run] ||= []).push(v); }
         if (docs.length < limit) break;
     }
-    const cells = gridCells();
+    const cells = gridCells(collection);
     let sufficient = 0;
     const detail = cells.map(c => {
         const S = byRun[c.id] || [], n = S.length, ev = evaluate(S);
@@ -263,7 +268,7 @@ http.createServer(async (req, res) => {
     console.log(`figserver on http://0.0.0.0:${PORT}  (grid <- ${COORD}, data <- Mongo ${MONGO_DB}, cache -> ${path.relative(HERE, CACHE_DIR)}/)`);
     // Preload cell colours once in the background (the Server reads full docs, so the scan is
     // ~1 min) → /grid is instant and coloured from cache thereafter. Skipped if already cached.
-    const dc = process.env.PRELOAD_COLLECTION || 'balance_grid';
+    const dc = process.env.PRELOAD_COLLECTION || 'constitution_grid';
     if (!fs.existsSync(gridCachePath(dc))) {
         console.log(`[preload] scanning "${dc}" to colour the grid (one-time)…`);
         gridFromMongo(dc).then(g => console.log(`[preload] grid ready: ${g.sufficient}/${g.cells} cells sufficient, cached`)).catch(e => console.log(`[preload] failed (grid still works, colours fill on click): ${e.message}`));
