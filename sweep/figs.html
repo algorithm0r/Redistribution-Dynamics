@@ -9,7 +9,7 @@
  body{font:12px system-ui,sans-serif;margin:12px;background:#fafafa;color:#222}
  h1{font-size:15px;margin:0 0 4px}#bar{margin:4px 0 10px;color:#444}
  #bar input{font:12px monospace;width:120px}#bar>*{margin-right:10px}
- .layout{display:flex;gap:16px;align-items:flex-start}
+ .layout{display:flex;gap:8px;align-items:flex-start}
  #gridwrap{flex:0 0 auto}#figwrap{flex:1 1 auto;min-width:0;overflow:hidden}
  .facets{display:flex;flex-wrap:wrap;gap:12px;max-width:560px}
  .facet{border:1px solid #ddd;border-radius:6px;padding:6px;background:#fff}
@@ -20,6 +20,7 @@
  td.sel{outline:3px solid #0072B2;outline-offset:-3px}
  .rn{position:absolute;right:1px;bottom:-1px;font-size:7px;font-weight:400;opacity:.6}
  .done{box-shadow:inset 0 0 0 2px #111}
+ td.cell.act{box-shadow:inset 0 0 0 2px #E69F00}   /* cell currently being run by a worker */
  .bi::before{content:'';position:absolute;top:0;left:0;border:5px solid transparent;border-top-color:#CC79A7;border-left-color:#CC79A7}
  .leg{display:inline-block;vertical-align:middle;width:90px;height:9px;border:1px solid #ccc;
   background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}
@@ -45,9 +46,9 @@
 </div>
 <div id="sum"></div>
 <div class="wk" id="wk"></div>
+<div style="margin:2px 0 6px;color:#555">cell = mean coop <span class="leg"></span> 0…1 · number = reps · boxed = sufficient · <span style="color:#CC79A7">◤</span> bistable · <span style="display:inline-block;width:9px;height:9px;box-shadow:inset 0 0 0 2px #E69F00;vertical-align:middle"></span> running</div>
 <div class="layout">
  <div id="gridwrap">
-  <div style="margin:2px 0 6px;color:#555">cell = mean coop <span class="leg"></span> 0…1 · number = reps · boxed = sufficient · <span style="color:#CC79A7">◤</span> bistable</div>
   <div class="facets" id="facets"><i>loading grid…</i></div>
  </div>
  <div id="figwrap"><canvas id="chart" width="1200" height="650"></canvas></div>
@@ -62,21 +63,24 @@ const coll=()=>document.getElementById('collection').value.trim();
 const msg=s=>document.getElementById('msg').textContent=s;
 let selected=null;
 
-const fmt=ms=>{if(ms==null||!isFinite(ms))return '?';let s=Math.round(ms/1000);if(s<90)return s+'s';let m=s/60;if(m<90)return (m<10?m.toFixed(1):m.toFixed(0))+'m';return (m/60).toFixed(1)+'h';};
+// NB: dashboard.js (loaded above) already defines a global `fmt` (number formatter). Classic
+// scripts share one global scope, so a second top-level `fmt` is a redeclaration SyntaxError
+// that kills this whole script. Name duration-format distinctly.
+const fmtDur=ms=>{if(ms==null||!isFinite(ms))return '?';let s=Math.round(ms/1000);if(s<90)return s+'s';let m=s/60;if(m<90)return (m<10?m.toFixed(1):m.toFixed(0))+'m';return (m/60).toFixed(1)+'h';};
 // Live sweep status (summary + per-worker panel), from /grid when it proxies the coordinator.
 // When the sweep isn't live, /grid returns cached/bare (no workers) → show a static line.
 function renderStatus(st){
  const ws=st.workers||[],sumEl=document.getElementById('sum'),wkEl=document.getElementById('wk');
  if(!ws.length){sumEl.innerHTML=`<b>${st.sufficient||0}/${st.cells}</b> cells sufficient · sweep not live (grid from ${st.source||'?'})`;wkEl.innerHTML='';return;}
  sumEl.innerHTML=`<b>${st.sufficient}/${st.cells}</b> cells sufficient · ${st.completed||0} reps · ${st.bistable||0} bistable · ${ws.length} running`
-  +` &nbsp;|&nbsp; elapsed ${fmt(st.uptimeMs)} · <b>${(st.ratePerMin||0).toFixed(1)}</b> reps/min · ~${st.remainingReps||0} left · <b>ETA ${fmt(st.etaMs)}</b>`;
+  +` &nbsp;|&nbsp; elapsed ${fmtDur(st.uptimeMs)} · <b>${(st.ratePerMin||0).toFixed(1)}</b> reps/min · ~${st.remainingReps||0} left · <b>ETA ${fmtDur(st.etaMs)}</b>`;
  const sorted=ws.slice().sort((a,b)=>(a.host+a.cell).localeCompare(b.host+b.cell));
  const tpsOf=w=>w.runMs>1000?w.tick/(w.runMs/1000):0;
  const rates=sorted.map(tpsOf).filter(x=>x>0).sort((a,b)=>a-b),med=rates.length?rates[Math.floor(rates.length/2)]:0;
  wkEl.innerHTML=sorted.map(w=>{const pc=w.total?Math.min(100,100*w.tick/w.total):0,tps=tpsOf(w),chug=tps>0&&med>0&&tps<0.5*med;
   return `<div class="w ${w.ageMs>20000?'stale':''}"${chug?' style="background:#fdecea"':''}><div class=c title="${w.cell}">${w.cell}</div>
    <div class=bar><i style="width:${pc.toFixed(0)}%"></i></div>
-   <div class=m>${fmt(w.runMs)} · ${tps.toFixed(0)} t/s${chug?' 🐌':''} · pop ${w.pop||0}</div><div class=m>${w.host}</div></div>`;}).join('');
+   <div class=m>${fmtDur(w.runMs)} · ${tps.toFixed(0)} t/s${chug?' 🐌':''} · pop ${w.pop||0}</div><div class=m>${w.host}</div></div>`;}).join('');
 }
 
 async function loadGrid(url){
@@ -85,6 +89,7 @@ async function loadGrid(url){
  if(st.error){document.getElementById('facets').innerHTML=st.error;return;}
  document.getElementById('src').textContent=`grid: ${st.source||(st.running!=null?'coordinator (live)':'?')}`;
  renderStatus(st);
+ const active=new Set((st.workers||[]).map(w=>w.cell));   // cells a worker is running right now
  const by={};for(const c of (st.detail||[])){const p=parse(c.id);if(p)(by[p.f+'|'+p.s]||=({}))[p.ic+'|'+p.g]=c;}
  let html='';
  for(const f of FRAN)for(const s of PSEX){
@@ -94,7 +99,7 @@ async function loadGrid(url){
    for(const g of GRATE){const c=(by[f+'|'+s]||{})[ic+'|'+g]||{n:0,done:false,coop:null};
     const cid=ic+'_g'+g+'_f'+f+'_s'+s;const txt=c.coop!=null?c.coop.toFixed(2):'';
     const tc=c.coop!=null&&c.coop>0.6?'#222':'#fff';const bg=c.coop==null?'#e8e8e8':vir(c.coop);
-    html+=`<td class="cell ${c.done?'done':''} ${c.bistable?'bi':''} ${cid===selected?'sel':''}" data-run="${cid}"
+    html+=`<td class="cell ${c.done?'done':''} ${active.has(cid)?'act':''} ${c.bistable?'bi':''} ${cid===selected?'sel':''}" data-run="${cid}"
       style="background:${bg};color:${tc}" title="${cid} · n=${c.n||0}${c.bistable?' · BISTABLE':''}">${txt}<span class=rn>${c.n||''}</span></td>`;}
    html+='</tr>';}
   html+='</table></div>';}
