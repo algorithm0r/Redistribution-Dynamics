@@ -17,6 +17,9 @@ npm-debug.log*
 .env
 .env.local
 
+# Fig server aggregate cache (regenerated from Mongo on demand)
+sweep/figcache/
+
 # OS / editor
 .DS_Store
 Thumbs.db

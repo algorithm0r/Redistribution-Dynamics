@@ -1,0 +1,124 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Redistribution Dynamics — Fig Server</title>
+<!-- Reuse the sim's rendering: util.js (palettes/rgb/GENE_SERIES) + dashboard.js (draw/aggregate
+     helpers). dashboard.js self-bootstraps only when #runSelect exists (the standalone dashboard),
+     so here it just exposes its render functions; data arrives pre-aggregated from figserver. -->
+<script src="/lib/util.js"></script>
+<script src="/lib/dashboard.js"></script>
+<style>
+ body{font:12px system-ui,sans-serif;margin:12px;background:#fafafa;color:#222}
+ h1{font-size:15px;margin:0 0 4px}#bar{margin:4px 0 10px;color:#444}
+ #bar input{font:12px monospace;width:120px}#bar>*{margin-right:10px}
+ .layout{display:flex;gap:16px;align-items:flex-start}
+ #gridwrap{flex:0 0 auto}#figwrap{flex:1 1 auto;min-width:0;overflow:hidden}
+ .facets{display:flex;flex-wrap:wrap;gap:12px;max-width:560px}
+ .facet{border:1px solid #ddd;border-radius:6px;padding:6px;background:#fff}
+ .facet h2{font-size:10px;margin:0 0 4px;font-weight:600;color:#555}
+ table.g{border-collapse:collapse}table.g td,table.g th{width:30px;height:22px;text-align:center;font-size:9px;border:1px solid #eee}
+ th{color:#999;font-weight:500}.ax{color:#999;font-size:8px}
+ td.cell{font-weight:600;position:relative;cursor:pointer}td.cell:hover{outline:2px solid #E69F00;outline-offset:-2px}
+ td.sel{outline:3px solid #0072B2;outline-offset:-3px}
+ .rn{position:absolute;right:1px;bottom:-1px;font-size:7px;font-weight:400;opacity:.6}
+ .done{box-shadow:inset 0 0 0 2px #111}
+ .bi::before{content:'';position:absolute;top:0;left:0;border:5px solid transparent;border-top-color:#CC79A7;border-left-color:#CC79A7}
+ .leg{display:inline-block;vertical-align:middle;width:90px;height:9px;border:1px solid #ccc;
+  background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}
+ canvas{border:1px solid #888;background:#fff;display:block}
+ button{font:12px system-ui}#msg{color:#666}
+</style></head>
+<body>
+<h1>Redistribution Dynamics — Fig Server</h1>
+<div id="bar">
+ collection <input id="collection" value="balance_grid">
+ <button id="reload">Reload grid</button>
+ <button id="colorize" title="scan Mongo once to colour every cell by mean coop (slow; cached after)">Colorize all</button>
+ <label><input type="checkbox" id="force"> force re-aggregate</label>
+ <button id="png">Download PNG</button>
+ <span id="src" style="color:#888"></span>
+ <span id="msg">click a cell to plot its aggregated run</span>
+</div>
+<div class="layout">
+ <div id="gridwrap">
+  <div style="margin:2px 0 6px;color:#555">cell = mean coop <span class="leg"></span> 0…1 · number = reps · boxed = sufficient · <span style="color:#CC79A7">◤</span> bistable</div>
+  <div class="facets" id="facets"><i>loading grid…</i></div>
+ </div>
+ <div id="figwrap"><canvas id="chart" width="1200" height="650"></canvas></div>
+</div>
+<script>
+const INDIV=['base','b0.5','b1','b2','b4','i8','i6','i4','i2'], GRATE=['2','4','6'], FRAN=['off','A','B'], PSEX=['0','0.5','1'];
+const parse=id=>{const m=id.match(/^(.+?)_g(\d+)_f(\w+)_s([\d.]+)$/);return m?{ic:m[1],g:m[2],f:m[3],s:m[4]}:null;};
+const VIR=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+function vir(t){t=Math.max(0,Math.min(1,t));const x=t*4,i=Math.floor(x),f=x-i,a=VIR[i],b=VIR[Math.min(4,i+1)];
+ return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
+const coll=()=>document.getElementById('collection').value.trim();
+const msg=s=>document.getElementById('msg').textContent=s;
+let selected=null;
+
+async function loadGrid(url){
+ url=url||('/grid?collection='+encodeURIComponent(coll()));
+ let st;try{st=await(await fetch(url)).json();}catch(e){document.getElementById('facets').innerHTML='grid fetch failed';return;}
+ if(st.error){document.getElementById('facets').innerHTML=st.error;return;}
+ document.getElementById('src').textContent=`grid: ${st.source||(st.running!=null?'coordinator':'?')} · ${st.sufficient||0}/${st.cells} sufficient`;
+ const by={};for(const c of (st.detail||[])){const p=parse(c.id);if(p)(by[p.f+'|'+p.s]||=({}))[p.ic+'|'+p.g]=c;}
+ let html='';
+ for(const f of FRAN)for(const s of PSEX){
+  html+=`<div class=facet><h2>franchise ${f} · pSexual ${s}</h2><table class=g><tr><th class=ax>rate→<br>ind↓</th>`;
+  for(const g of GRATE)html+='<th>g'+g+'</th>';html+='</tr>';
+  for(const ic of INDIV){html+='<tr><th>'+ic+'</th>';
+   for(const g of GRATE){const c=(by[f+'|'+s]||{})[ic+'|'+g]||{n:0,done:false,coop:null};
+    const cid=ic+'_g'+g+'_f'+f+'_s'+s;const txt=c.coop!=null?c.coop.toFixed(2):'';
+    const tc=c.coop!=null&&c.coop>0.6?'#222':'#fff';const bg=c.coop==null?'#e8e8e8':vir(c.coop);
+    html+=`<td class="cell ${c.done?'done':''} ${c.bistable?'bi':''} ${cid===selected?'sel':''}" data-run="${cid}"
+      style="background:${bg};color:${tc}" title="${cid} · n=${c.n||0}${c.bistable?' · BISTABLE':''}">${txt}<span class=rn>${c.n||''}</span></td>`;}
+   html+='</tr>';}
+  html+='</table></div>';}
+ document.getElementById('facets').innerHTML=html;
+ document.querySelectorAll('td.cell').forEach(td=>td.onclick=()=>loadRun(td.dataset.run));
+}
+
+async function loadRun(run){
+ selected=run;
+ document.querySelectorAll('td.cell').forEach(td=>td.classList.toggle('sel',td.dataset.run===run));
+ msg(`aggregating ${run}…`);
+ let payload;
+ try{const q=new URLSearchParams({collection:coll(),run});if(document.getElementById('force').checked)q.set('force','1');
+     payload=await(await fetch('/agg?'+q)).json();}
+ catch(e){msg('agg fetch failed: '+e.message);return;}
+ if(payload.error){msg('error: '+payload.error);return;}
+ if(payload.empty||!payload.reps){msg(`${run}: no data yet`);
+   CTX=document.getElementById('chart').getContext('2d');CTX.clearRect(0,0,2400,1300);
+   CTX.fillStyle='#999';CTX.font='20px monospace';CTX.fillText(`${run}: no replicates in Mongo yet`,40,60);return;}
+ // Drive dashboard.js's renderer with the server-side aggregate (shared global scope across scripts).
+ CTX=document.getElementById('chart').getContext('2d');
+ agg=payload.agg;
+ reportingPeriod=(payload.parameters&&payload.parameters.reportingPeriod)||100;
+ docsAll=new Array(payload.reps);docsAll[0]={run:payload.run,parameters:payload.parameters};docs=docsAll;
+ // draw() reads #basinFilter.value; none here → default to 'all' via a stub element.
+ if(!document.getElementById('basinFilter')){const s=document.createElement('input');s.id='basinFilter';s.value='all';s.style.display='none';document.body.appendChild(s);}
+ draw();
+ // colour the clicked cell from its aggregate (lazy grid colouring when there's no full scan)
+ if(payload.finalCoop!=null){const td=document.querySelector(`td.cell[data-run="${run}"]`);
+  if(td){td.style.background=vir(payload.finalCoop);td.style.color=payload.finalCoop>0.6?'#222':'#fff';
+   td.innerHTML=payload.finalCoop.toFixed(2)+'<span class=rn>'+payload.reps+'</span>';td.classList.add('sel');}}
+ msg(`${run}: ${payload.reps} reps · final mean coop ${(payload.finalCoop!=null?payload.finalCoop.toFixed(3):'?')} ${payload.cached?'· cached':''}`);
+}
+
+// Size the canvas to its container in real pixels (1:1, no CSS scaling → crisp + no scrollbar);
+// draw() reads canvas.width/height and lays out to fit. Redraw the loaded run on resize.
+function sizeCanvas(){
+ const fw=document.getElementById('figwrap'),cv=document.getElementById('chart');
+ const w=Math.max(700,Math.floor(fw.clientWidth-4));
+ cv.width=w;cv.height=Math.round(w*1300/2400);
+ if(typeof agg!=='undefined'&&agg&&typeof docs!=='undefined'&&docs&&docs.length){CTX=cv.getContext('2d');draw();}
+}
+let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(sizeCanvas,120);});
+sizeCanvas();
+
+document.getElementById('reload').onclick=()=>loadGrid();
+document.getElementById('colorize').onclick=()=>{msg('scanning Mongo to colour all cells (slow)…');
+ loadGrid('/grid?full=1&collection='+encodeURIComponent(coll())).then(()=>msg('grid coloured'));};
+document.getElementById('png').onclick=()=>{if(!selected)return;const a=document.createElement('a');
+ a.download=(selected||'fig')+'.png';a.href=document.getElementById('chart').toDataURL('image/png');a.click();};
+loadGrid();
+</script>
+</body></html>

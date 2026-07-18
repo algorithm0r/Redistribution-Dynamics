@@ -16,6 +16,10 @@ const COOP_COL = { lo: CVD.vermillion, mid: CVD.grey, hi: CVD.blue };  // defect
 let socket, CTX, docsAll = [], docs = [], agg = null, reportingPeriod = 100;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Only self-bootstrap on the standalone dashboard page (which has #runSelect). The fig
+    // server's page reuses this file's render/aggregate functions but drives them itself
+    // (data comes pre-aggregated from figserver), so it must NOT auto-connect to Mongo here.
+    if (!document.getElementById('runSelect')) return;
     CTX = document.getElementById('chart').getContext('2d');
 
     socket = io.connect(PARAMETERS.ip);
@@ -296,22 +300,26 @@ function aggregate() {
 // ── Drawing ───────────────────────────────────────────────────────────────────
 function draw() {
     const ctx = CTX;
-    ctx.clearRect(0, 0, 2400, 1300);
+    // Layout authored in a 2400x1300 coordinate system; scale every coordinate by S to the
+    // canvas's ACTUAL pixel size so it renders 1:1 (no CSS scaling → crisp histograms, no
+    // scrollbar). The standalone dashboard keeps a 2400-wide canvas, so there S = 1 (unchanged).
+    const W = ctx.canvas.width, H = ctx.canvas.height, S = W / 2400;
+    ctx.clearRect(0, 0, W, H);
     const p = docs[0].parameters || {};
     const coopFinal = lastFinite(agg.geneMean.coop);
 
     const showing = document.getElementById('basinFilter').value;
     const c = agg._cats.counts;
-    ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = 'bold 17px monospace';
-    ctx.fillText(`${docsAll[0].run}  (showing ${showing}: ${docs.length}/${docsAll.length})  —  ${c.coop} coop / ${c.defect} defect / ${c.polar} polar / ${c.middling} middling`, 20, 24);
-    ctx.font = '13px monospace';
+    ctx.fillStyle = '#000'; ctx.textAlign = 'left'; ctx.font = `bold ${Math.round(17 * S)}px monospace`;
+    ctx.fillText(`${docsAll[0].run}  (showing ${showing}: ${docs.length}/${docsAll.length})  —  ${c.coop} coop / ${c.defect} defect / ${c.polar} polar / ${c.middling} middling`, 20 * S, 24 * S);
+    ctx.font = `${Math.round(13 * S)}px monospace`;
     ctx.fillText(`indivBirthThreshold=${p.individualBirthThreshold}   birthWealthBias(β)=${p.birthWealthBias != null ? p.birthWealthBias : (p.wealthProportionalBirth ? 1 : 0)}   ` +
         `epoch=${p.epoch}   migrate r/m/s=${p.pMigrateRandom}/${p.pMigrateMisfit}/${p.pMigrateStarve}   ` +
-        `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 840, 24);
+        `→ subgroup final mean coop=${coopFinal.toFixed(3)}`, 840 * S, 24 * S);
 
     // Line graphs (five across the top).
-    const gy = 50, gw = 465, gh = 150, GENE_COL = GENE_SERIES;
-    const gx = i => 20 + i * (gw + 12);
+    const gy = 50 * S, gw = 465 * S, gh = 150 * S, GENE_COL = GENE_SERIES;
+    const gx = i => (20 + i * (465 + 12)) * S;
     drawGraph(gx(0), gy, gw, gh, [
         { values: agg.population, color: '#000', label: 'pop' },
         { values: agg.villages.map(v => v * (maxOf(agg.population) / Math.max(1, maxOf(agg.villages)))), color: '#888', label: 'villages(scaled)' },
@@ -332,9 +340,9 @@ function draw() {
         ({ values: agg.coopCorr[g], color: GENE_COL[i], label: g })),
         { title: 'corr(coop, gene) over time', min: -1, max: 1 });
     if (!agg.hasCov) {
-        ctx.fillStyle = '#999'; ctx.font = '13px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('no covariance in these runs', covX + gw / 2, gy + gh / 2 - 6);
-        ctx.fillText('(re-run to populate)', covX + gw / 2, gy + gh / 2 + 12);
+        ctx.fillStyle = '#999'; ctx.font = `${Math.round(13 * S)}px monospace`; ctx.textAlign = 'center';
+        ctx.fillText('no covariance in these runs', covX + gw / 2, gy + gh / 2 - 6 * S);
+        ctx.fillText('(re-run to populate)', covX + gw / 2, gy + gh / 2 + 12 * S);
     }
 
     // Histogram grid: 5 columns per gene (rows), pooled across replicates.
@@ -345,17 +353,17 @@ function draw() {
         { key: 'hi', tag: 'coop', color: COOP_COL.hi },
         { key: 'vil', tag: 'vil', color: '#000' },
     ];
-    const x0 = 20, gridY = 250, gap = 8;
-    const cW = Math.floor((2400 - 2 * x0 - 4 * gap) / 5);
-    const hH = 105, hStep = 125;   // 8 gene rows (omega added) fit within the 1300px canvas
+    const x0 = 20 * S, gridY = 250 * S, gap = 8 * S;
+    const cW = Math.floor((W - 2 * x0 - 4 * gap) / 5);
+    const hH = 105 * S, hStep = 125 * S;   // 8 gene rows (omega added) fit within the canvas height
 
-    ctx.font = '11px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
-    ctx.fillText('per-gene pooled histograms (value low→high, bottom→top). columns:', x0, gridY - 16);
-    ctx.fillStyle = '#000'; ctx.fillText('all', x0 + 380, gridY - 16);
-    ctx.fillStyle = COOP_COL.lo; ctx.fillText('defectors', x0 + 410, gridY - 16);
-    ctx.fillStyle = COOP_COL.mid; ctx.fillText('middlers', x0 + 490, gridY - 16);
-    ctx.fillStyle = COOP_COL.hi; ctx.fillText('cooperators', x0 + 565, gridY - 16);
-    ctx.fillStyle = '#000'; ctx.fillText('villages', x0 + 660, gridY - 16);
+    ctx.font = `${Math.round(11 * S)}px monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
+    ctx.fillText('per-gene pooled histograms (value low→high, bottom→top). columns:', x0, gridY - 16 * S);
+    ctx.fillStyle = '#000'; ctx.fillText('all', x0 + 380 * S, gridY - 16 * S);
+    ctx.fillStyle = COOP_COL.lo; ctx.fillText('defectors', x0 + 410 * S, gridY - 16 * S);
+    ctx.fillStyle = COOP_COL.mid; ctx.fillText('middlers', x0 + 490 * S, gridY - 16 * S);
+    ctx.fillStyle = COOP_COL.hi; ctx.fillText('cooperators', x0 + 565 * S, gridY - 16 * S);
+    ctx.fillStyle = '#000'; ctx.fillText('villages', x0 + 660 * S, gridY - 16 * S);
 
     GENES.forEach((g, gi) => {
         const y = gridY + gi * hStep;
@@ -419,11 +427,15 @@ function drawHist(x, y, w, h, snaps, opts) {
     ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, h);
     const n = snaps ? snaps.length : 0;
     if (n) {
-        const nb = snaps[0].length, dx = w / n;
-        for (let i = 0; i < n; i++) {
-            const snap = snaps[i]; let tot = 0; for (const v of snap) tot += v;
+        const nb = snaps[0].length, W = Math.max(1, Math.floor(w));
+        // Paint W integer pixel-columns, resampling snapshots -> columns. Drawing per-snapshot at
+        // a fractional x (dx = w/n < 1 when there are more snapshots than pixels) makes 1px rects
+        // land off-grid and overlap/gap → vertical striping. Integer columns align exactly.
+        for (let px = 0; px < W; px++) {
+            const snap = snaps[Math.min(n - 1, Math.floor(px * n / W))];
+            let tot = 0; for (const v of snap) tot += v;
             if (!tot) continue;
-            for (let j = 0; j < nb; j++) histFill(x + i * dx, y, dx, h, snap[j] / tot, nb - 1 - j, nb);
+            for (let j = 0; j < nb; j++) histFill(x + px, y, 1, h, snap[j] / tot, nb - 1 - j, nb);
         }
     }
     (opts.lines || []).forEach(ln => {
