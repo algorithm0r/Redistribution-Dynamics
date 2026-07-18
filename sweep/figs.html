@@ -25,6 +25,12 @@
   background:linear-gradient(90deg,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))}
  canvas{border:1px solid #888;background:#fff;display:block}
  button{font:12px system-ui}#msg{color:#666}
+ #sum{margin:2px 0 6px;color:#333}
+ .wk{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px}
+ .w{width:150px;border:1px solid #e2e2e2;border-radius:5px;padding:4px 6px;background:#fff;font-size:10px}
+ .w .c{font-weight:600}.w .m{color:#999;font-size:9px}
+ .bar{height:5px;background:#eee;border-radius:3px;margin:3px 0;overflow:hidden}.bar>i{display:block;height:100%;background:#E69F00}
+ .w.stale{opacity:.4}
 </style></head>
 <body>
 <h1>Redistribution Dynamics — Fig Server</h1>
@@ -37,6 +43,8 @@
  <span id="src" style="color:#888"></span>
  <span id="msg">click a cell to plot its aggregated run</span>
 </div>
+<div id="sum"></div>
+<div class="wk" id="wk"></div>
 <div class="layout">
  <div id="gridwrap">
   <div style="margin:2px 0 6px;color:#555">cell = mean coop <span class="leg"></span> 0…1 · number = reps · boxed = sufficient · <span style="color:#CC79A7">◤</span> bistable</div>
@@ -54,11 +62,29 @@ const coll=()=>document.getElementById('collection').value.trim();
 const msg=s=>document.getElementById('msg').textContent=s;
 let selected=null;
 
+const fmt=ms=>{if(ms==null||!isFinite(ms))return '?';let s=Math.round(ms/1000);if(s<90)return s+'s';let m=s/60;if(m<90)return (m<10?m.toFixed(1):m.toFixed(0))+'m';return (m/60).toFixed(1)+'h';};
+// Live sweep status (summary + per-worker panel), from /grid when it proxies the coordinator.
+// When the sweep isn't live, /grid returns cached/bare (no workers) → show a static line.
+function renderStatus(st){
+ const ws=st.workers||[],sumEl=document.getElementById('sum'),wkEl=document.getElementById('wk');
+ if(!ws.length){sumEl.innerHTML=`<b>${st.sufficient||0}/${st.cells}</b> cells sufficient · sweep not live (grid from ${st.source||'?'})`;wkEl.innerHTML='';return;}
+ sumEl.innerHTML=`<b>${st.sufficient}/${st.cells}</b> cells sufficient · ${st.completed||0} reps · ${st.bistable||0} bistable · ${ws.length} running`
+  +` &nbsp;|&nbsp; elapsed ${fmt(st.uptimeMs)} · <b>${(st.ratePerMin||0).toFixed(1)}</b> reps/min · ~${st.remainingReps||0} left · <b>ETA ${fmt(st.etaMs)}</b>`;
+ const sorted=ws.slice().sort((a,b)=>(a.host+a.cell).localeCompare(b.host+b.cell));
+ const tpsOf=w=>w.runMs>1000?w.tick/(w.runMs/1000):0;
+ const rates=sorted.map(tpsOf).filter(x=>x>0).sort((a,b)=>a-b),med=rates.length?rates[Math.floor(rates.length/2)]:0;
+ wkEl.innerHTML=sorted.map(w=>{const pc=w.total?Math.min(100,100*w.tick/w.total):0,tps=tpsOf(w),chug=tps>0&&med>0&&tps<0.5*med;
+  return `<div class="w ${w.ageMs>20000?'stale':''}"${chug?' style="background:#fdecea"':''}><div class=c title="${w.cell}">${w.cell}</div>
+   <div class=bar><i style="width:${pc.toFixed(0)}%"></i></div>
+   <div class=m>${fmt(w.runMs)} · ${tps.toFixed(0)} t/s${chug?' 🐌':''} · pop ${w.pop||0}</div><div class=m>${w.host}</div></div>`;}).join('');
+}
+
 async function loadGrid(url){
  url=url||('/grid?collection='+encodeURIComponent(coll()));
  let st;try{st=await(await fetch(url)).json();}catch(e){document.getElementById('facets').innerHTML='grid fetch failed';return;}
  if(st.error){document.getElementById('facets').innerHTML=st.error;return;}
- document.getElementById('src').textContent=`grid: ${st.source||(st.running!=null?'coordinator':'?')} · ${st.sufficient||0}/${st.cells} sufficient`;
+ document.getElementById('src').textContent=`grid: ${st.source||(st.running!=null?'coordinator (live)':'?')}`;
+ renderStatus(st);
  const by={};for(const c of (st.detail||[])){const p=parse(c.id);if(p)(by[p.f+'|'+p.s]||=({}))[p.ic+'|'+p.g]=c;}
  let html='';
  for(const f of FRAN)for(const s of PSEX){
@@ -120,5 +146,6 @@ document.getElementById('colorize').onclick=()=>{msg('scanning Mongo to colour a
 document.getElementById('png').onclick=()=>{if(!selected)return;const a=document.createElement('a');
  a.download=(selected||'fig')+'.png';a.href=document.getElementById('chart').toDataURL('image/png');a.click();};
 loadGrid();
+setInterval(()=>loadGrid(),4000);   // live sweep updates (cheap: coordinator /status when up, cached grid when done)
 </script>
 </body></html>

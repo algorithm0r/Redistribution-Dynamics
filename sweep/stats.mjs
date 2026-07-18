@@ -21,7 +21,7 @@ const Z = 1.96;
 const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
 const sd = a => (a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - mean(a)) ** 2, 0) / (a.length - 1)) : 0);
 
-export const DEFAULTS = { threshold: 0.5, eLevel: 0.03, eP: 0.10, minN: 3, maxN: 60 };
+export const DEFAULTS = { threshold: 0.5, eLevel: 0.03, eP: 0.10, minN: 5, maxN: 60 };
 
 /** Evaluate one cell's replicate metric values. Returns { enough, n, nNeeded, regime, ... }. */
 export function evaluate(vals, opt = {}) {

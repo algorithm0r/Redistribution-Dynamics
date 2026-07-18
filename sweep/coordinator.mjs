@@ -59,9 +59,12 @@ async function syncFromMongo(tag = 'sync') {
         if (!s) { console.log(`[${tag}] Mongo not connected — skipping`); return; }
         const byRun = {};
         for (let page = 0, limit = 500; ; page++) {
-            const ack = await emitAck(s, 'find', { db: MONGO_DB, collection: COLLECTION, query: {}, projection: { run: 1, 'geneMeans.coop': 1 }, limit, page });
+            // $slice:-1 → only the final coop per doc (small transfer); 90s ack — the Server reads
+            // full multi-MB docs so a page can take ~60-80s, well over the 30s default (which was
+            // timing out and making resume load 0 reps → a needless full re-run).
+            const ack = await emitAck(s, 'find', { db: MONGO_DB, collection: COLLECTION, query: {}, projection: { run: 1, 'geneMeans.coop': { $slice: -1 } }, limit, page }, 90000);
             const docs = (ack && ack.results) || [];
-            for (const d of docs) { const v = lastFinite(d.geneMeans && d.geneMeans.coop); if (d.run != null && Number.isFinite(v)) (byRun[d.run] ||= []).push(v); }
+            for (const d of docs) { const c = d.geneMeans && d.geneMeans.coop, v = Array.isArray(c) ? lastFinite(c) : c; if (d.run != null && Number.isFinite(v)) (byRun[d.run] ||= []).push(v); }
             if (docs.length < limit) break;
         }
         let reps = 0, done = 0;
