@@ -28,7 +28,7 @@ const CACHE_DIR = path.join(HERE, 'figcache');
 const FIGS = path.join(HERE, 'figs.html');
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega'];
+const GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'coop', 'omega', 'term'];
 const POLICY = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi'];
 
 // ── Mongo (socket.io → Server → Mongo), same access pattern as coordinator.mjs ──────

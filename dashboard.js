@@ -367,6 +367,7 @@ function draw() {
 
     GENES.forEach((g, gi) => {
         const y = gridY + gi * hStep;
+        if (!agg.geneMean[g] || !agg.coopMean[g]) return;   // skip genes absent from the aggregate (e.g. older/mismatched cache)
         cols.forEach((col, ci) => {
             const x = x0 + ci * (cW + gap);
             let snaps, lines = [];
