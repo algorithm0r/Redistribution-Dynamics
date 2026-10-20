@@ -2,6 +2,55 @@
 
 Newest entries at the top.
 
+## 2026-10-20 — constitution_grid analyzed: a negative result (constitutional layer opens no new cooperation regions)
+
+**Done:** Closed out the long-orphaned `constitution_grid` sweep. It ran to **1801 reps /
+45 cells (~40/cell) on 2026-07-18** and has had nothing written since — all inserts fall that
+one day (verified in Mongo); the standing "analyze as it fills" was never closed. Pulled
+final-tick gene means (`$slice:-1`) for all 1801 constitution_grid + 2223 balance_grid reps
+and aggregated per cell (establishment = final mean coop > 0.5; pEst = fraction establishing).
+**The constitutional layer answered its question in the negative:** neither signed/progressive
+redistribution (signed θ/ψ), nor locking a constitution (term T), nor enfranchising voters
+(A/B) opens any new cooperation region beyond balance_grid's franchise-off basin — where the
+new knobs act, they *suppress* coop.
+- **Franchise/term marginal pEst:** off T=1 (continuous) 0.81 (8/9 cells) · off T=100 (locked)
+  0.72 (7/9) · off T=50k (one-shot founding) 0.34 (3/9) · franchise A 0.24 (2/9) · B 0.30
+  (3/9). Longer term worse than continuous; franchise worse than none. 23/45 cells cooperate.
+- **Signed vs unsigned wealth-line, matched** (foff continuous, g2, pSexual 0): base
+  1.00/0.78→0.97/0.76, i8 1.00/0.81→0.88/0.74, i6 0.84/0.70→0.75/0.66 — signed slightly lowers
+  coop, opens nothing.
+- **Recipe reconfirmed:** individual base 0.70 > i8 0.45 > i6 0.30; group g1 0.66 > g2 0.48 >
+  g3 0.30 (lower rate = stronger group selection).
+- **Syndrome unchanged, selection real:** high λ ~0.85–0.92 (punish), high φ ~0.86–0.92
+  (needs-first), low κ ~0.08–0.15 (anti hub-hoard), progressive θ ~0.66–0.73 (signed >0.5 =
+  tax the top, confirmed in `wealthGate`). **ω flat ~0.48–0.54 everywhere = drift baseline →
+  real selection, not draft.** ψ ~0.42–0.56 under franchise-off is inert (ψ ignored when all
+  vote), so its ~0.5 is the expected tracer signature, not a result.
+- **Caveats:** (1) reps unbalanced by design — adaptive stopping killed clearly-failing cells
+  at n=5, bistable ones ran to n=60; the n=5 cells are genuinely non-cooperative, so the
+  direction holds. (2) Franchise doesn't *kill* coop everywhere — at the strongest corner
+  (base, g1) franchise A still cooperates (pEst 0.68, n=60); the knobs **narrow** the basin,
+  not abolish it.
+
+**Changed:** DEVLOG (this entry); DEVPLAN (constitution-layer section marked ANALYZED + the
+finding; roadmap boxes ticked: fig dashboard, signed θ/ψ, termed constitutions; Backlog added);
+STATUS rewritten (sweep complete + analyzed, not "running"). CLAUDE.md carries a pre-existing
+Ports note (authored before this session, not its work). **No sim code touched** — pure
+analysis. Rule docs: checked CLAUDE.md, DEVPLAN, STATUS, conventions.md — no code/rule changed,
+so none stated a now-false behaviour; STATUS/DEVPLAN run-state lines (which *were* false:
+"running", "analyze as it fills") rewritten here.
+
+**State:** No build/run change (no sim edit). Numbers from cached final-tick gene means
+(constitution_grid.json 1801 rows + balance_grid.json 2223 rows, session scratchpad =
+throwaway). balance_grid recomputed 16/243 establish (all franchise-off); vs 14/243 logged
+2026-07-18 — threshold-method difference (coop>0.5 + pEst≥0.5 here vs the adaptive Wilson/t
+two-regime test), not a discrepancy. @ `v0.1.0-8-ga76ab5e` (pre-commit; this session's commit
+is doc-only).
+
+**Next:** Write-up — the franchise/term suppression gradient is the publishable panel. To push
+for *new* coop regions the untested directions are structural (cap-respecting migration; richer
+constitution space), not more of the franchise/term axis, which is now mapped.
+
 ## 2026-07-18 — constitutional layer: signed θ/ψ + termed constitutions (+ term meta-gene)
 
 **Done:** Built the two DEVPLAN "Proposed extensions." (1) **Signed θ/ψ** — new

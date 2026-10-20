@@ -416,7 +416,7 @@ Model G (village-level genome) for the V-vs-G comparison.
 
 ---
 
-### Constitutional layer — signed θ/ψ + termed constitutions (BUILT 2026-07-18)
+### Constitutional layer — signed θ/ψ + termed constitutions (BUILT 2026-07-18; ANALYZED 2026-10-20 — negative result)
 
 Two ideas that both push on the *constitutional* (meta) layer — the genes that
 reshape *who decides and how* rather than move resources. **Both are now built** and live
@@ -425,6 +425,17 @@ village.js) on θ/ψ only (ρ deferred), and termed constitutions (the `term` me
 agent.js + `Village.constitution`/`electedTerm` in village.js, world tick threaded in
 world.js). Defaults preserve the old model (`signedThreshold` off, `constitutionTerm` 1).
 The design notes below stand as the rationale; ρ (signed who-receives) remains unbuilt.
+
+**Finding (constitution_grid, 1801 reps / 45 cells, analyzed 2026-10-20 — DEVLOG).** The
+layer is a **clean negative result**: none of signed/progressive θ/ψ, locking a constitution
+(term T), or enfranchising voters (A/B) opens any new cooperation region beyond the
+balance_grid franchise-off basin. Where the new knobs act, they *suppress* coop — franchise/
+term pEst runs off-continuous 0.81 → off-locked 0.72 → off-founding 0.34 → franchise A 0.24 /
+B 0.30, and the signed wealth-line is ~neutral-to-slightly-negative vs the old one-sided gate.
+The cooperative syndrome is unchanged (high λ/φ, low κ, progressive θ; ω flat = real
+selection). Cooperation here is a group-selection phenomenon that constitutional structure
+does not rescue. The franchise/term axis is now mapped; pushing for *new* coop regions means
+structural changes (cap-respecting migration, richer constitution space), not more of this axis.
 
 #### 1. Signed wealth-line filters (filter either tail, not just the poor)
 
@@ -547,13 +558,32 @@ returns the constitution unless `worldTick − electedAt ≥ T`, then re-votes a
       gene + sexual reproduction (`pSexual`) to separate genetic draft from selection.
 - [x] Headless adaptive batch coordinator (`sweep/`): CI-driven dovetail dispatch,
       heartbeats, Mongo-resume, multi-machine (local + mint), live dashboard.
-- [~] Tune luck/params for a clear selection signal; run sweeps. **In progress:**
-      `balance_grid` (243-cell individual-vs-group balance sweep) running.
-- [ ] Fig/aggregation dashboard (8091): coop/gene-means/ω heatmaps from `balance_grid`.
+- [x] Tune luck/params for a clear selection signal; run sweeps. `balance_grid`
+      (243-cell individual-vs-group balance sweep) complete (~2210 reps); `constitution_grid`
+      (45 cells, 1801 reps) complete + analyzed 2026-10-20. **Result:** coop needs franchise-off
+      + weak/no individual + strong group selection; constitutional layer opens no new basin.
+- [x] Fig/aggregation dashboard: `sweep/figserver.mjs` (:8091) + `figs.html` — per-run `/agg`
+      series + per-cell gene/ω figures + grid colorize by mean coop; constitution_grid layout
+      supported.
 - [ ] Model G: village-level policy genome (no voting) for the V-vs-G comparison.
-- [ ] Signed wealth-line filters (−1…1) for θ / ψ + a new "who receives" gate ρ, so a
-      rule can filter *either* tail (regressive tax, proletarian franchise, upward
-      transfer); favours percentile mode. *(Proposed 2026-07-18.)*
-- [ ] Constitutions: lock the vote for a term `T` (institutional hysteresis; `T=1`
-      recovers continuous Model V, `T→∞` = founding vote), then make `T` a meta-voted
-      constitutional gene. *(Proposed 2026-07-18.)*
+- [x] Signed wealth-line filters for θ / ψ (signed `wealthGate`, `signedThreshold`; stored
+      [0,1], `s=2g−1`). *(Built 2026-07-18.)* ~~+ a new "who receives" gate ρ~~ → **ρ still
+      deferred** (the one-sided-either-tail idea extends to allocation but isn't built).
+- [x] Constitutions: lock the vote for a term `T` (institutional hysteresis; `T=1`
+      recovers continuous Model V, `T→∞` = founding vote) + make `T` a meta-voted
+      constitutional gene. *(Built 2026-07-18; analyzed 2026-10-20 — negative result above.)*
+
+## Backlog
+
+Loose items noticed but not scheduled into a roadmap line. Lead with type.
+
+- [ ] idea: write-up / figure of the **franchise/term suppression gradient** (continuous →
+      locked → founding → franchised) — the publishable panel from the 2026-10-20 analysis.
+- [ ] idea: structural routes to *new* cooperation regions, since the franchise/term axis is
+      mapped and opens none — cap-respecting migration, or a richer constitution space
+      (the deferred ρ "who receives" gate, multi-gene constitutions).
+- [ ] fix: sweep port/collection safety — `sweep/worker.mjs` enrolls with whatever answers the
+      coordinator port and never checks which collection it reached, so a port collision can
+      file runs into the wrong Mongo collection silently (data-integrity bug). Adopt the
+      `/whoami` + `discover()` guard and a port *range*. Rationale in project `CLAUDE.md`
+      ("Ports") and `~/.claude/conventions.md` §4a.

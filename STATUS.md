@@ -1,56 +1,59 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-07-18
+Updated: 2026-10-20
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close)
 
 Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release.
-Since then: main-realm headless (~7–10× faster), the fig server (:8091), and the
-constitutional layer (below). Later drift reads as `v0.1.0-N-g<sha>`.
+Drift since reads as `v0.1.0-N-g<sha>`; this session's doc-only commit sits at
+`v0.1.0-8-ga76ab5e` + 1.
 
 ## Stage
-Model V live. Added a **constitutional (meta) layer**: signed θ/ψ filters (either tail) and
-**termed constitutions** with a voted **term (T)** meta-gene. Distributed adaptive sweep +
-fig server (:8091) both in use. `balance_grid` (243 cells) complete; `constitution_grid`
-(45 cells) now running.
+Model V live with the full **constitutional (meta) layer**: signed θ/ψ filters (either tail)
+and **termed constitutions** with a voted **term (T)** meta-gene. Both sweeps are **complete
+and analyzed**: `balance_grid` (243 cells) and `constitution_grid` (45 cells). The science
+question for the constitutional layer is **answered** (negative result — see below); the
+project is now at a write-up / "where next" juncture, not mid-run.
 
 ## State
-- **Builds/runs.** `worldsmoke` **PASS** ×3: franchise-check (defaults == old mechanism),
-  signed-check (proletarian ψ=.3 → poor win, plutocratic ψ=.7 → rich win), constitution-check
-  (T=100 locks between elections, re-votes at term, voted term .5 → 25001).
-- Defaults preserve the old model: `signedThreshold` off, `constitutionTerm` 1, `term` drifts
-  inert like ω. `term` is the 9th recorded gene (genome, covariance, endpoint, dashboards).
-- **Live experiment:** `constitution_grid` — 17 workers (12 `DESKTOP-QQL4VJJ` + 5 `mint`) on
-  the main-realm headless. Coordinator `node coordinator.mjs constitution.json` on `:8090`.
-  Data → Mongo `redistribution_dynamics.constitution_grid`.
-- **Prior:** `balance_grid` complete (243/243, ~2210 reps at minN 5). Analysis: coop is rare
-  (14/243), needs franchise-off + weak/no individual selection + strong group selection;
-  cooperative worlds co-evolve high λ (punish), high φ (needs-first), low κ (hub-keep),
-  progressive θ; ω flat (real selection, not drift). This shaped the new sweep.
+- **Builds/runs** (unchanged this session — analysis only, no sim code edited). Last verified
+  `worldsmoke` PASS ×3 (franchise-check, signed-check, constitution-check) @ 2026-07-18.
+- **`constitution_grid` complete + ANALYZED 2026-10-20:** 1801 reps / 45 cells (~40/cell), all
+  written 2026-07-18 (confirmed in Mongo; nothing since). **Negative result:** neither signed
+  θ/ψ, nor locking a constitution (term T), nor enfranchising voters (A/B) opens any new
+  cooperation region beyond the franchise-off basin; the new knobs *suppress* coop where they
+  act. Franchise/term pEst: off-continuous 0.81 → off-locked 0.72 → off-founding 0.34 →
+  franchise A 0.24 / B 0.30. Syndrome unchanged (high λ/φ, low κ, progressive θ); ω flat = real
+  selection. (Numbers from cached final-tick gene means; raw caches are throwaway scratchpad.)
+- **`balance_grid` complete:** 243 cells (~2210 reps); recomputed 16/243 cooperating (all
+  franchise-off), consistent with the 14/243 logged 2026-07-18 (threshold-method difference).
+  Coop needs franchise-off + weak/no individual selection + strong group selection.
 
 ## Metrics
 - `constitution_grid`: 45 cells = individual {base, i8, i6} × group-rate {1,2,3} ×
   franchise/term {off@T1, off@T100, off@T50k, A(voted), B(voted)}. Fixed: signed θ/ψ on,
   thresholdMode percentile, pSexual 0. Adaptive stop minN 5, maxN 60, coop CI ±0.03.
-- Term mapping: voted term gene [0,1] → [1, termMax=50000] ticks (`1 + g·(termMax−1)`).
+- Establishment metric used in analysis: final mean coop > 0.5; cell pEst = fraction of reps
+  establishing. Term mapping: voted term gene [0,1] → [1, termMax=50000] ticks.
 
 ## Branches
 `main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. Local
-commits ahead of origin (unpushed).
+commits ahead of origin (unpushed as of this session).
 
 ## Open
-- **Fig dashboard grid parser still expects the balance_grid id layout** (`ic_g#_f#_s#`), so
-  the new cells (`base_g1_foff_T1`, `i8_g2_fA`) don't lay out in the facet view — per-cell
-  `/agg` figures work, the grid navigator needs new axes. (Next.)
 - Browser UI inputs for `signedThreshold`/`constitutionTerm`/`term` not added (defaults hold;
-  the sweep sets them via config).
+  sweeps set them via config).
 - `term` intentionally NOT in `policyDistance` (kept 6-gene, like ω) — migration-on-term is a
-  future option (DEVPLAN).
-- Migration ignores the cap → villages reach ~1.7× cap (accepted).
+  future option.
+- Migration ignores the cap → villages reach ~1.7× cap (accepted gap).
+- ρ (signed "who receives" allocation gate) still unbuilt (deferred).
+- Sweep port/collection safety bug carried to DEVPLAN Backlog (workers can file into the wrong
+  Mongo collection on a port collision).
 
 ## Next action
-Upgrade the fig server/dashboard grid for the constitution axes (individual × group-rate ×
-franchise/term). Analyze `constitution_grid` as it fills: does signed/proletarian
-redistribution or a locked constitution open new cooperative regions?
+Write-up: the franchise/term suppression gradient is the publishable panel. The constitutional
+layer's question is closed; pushing for *new* cooperative regions means structural changes
+(cap-respecting migration, richer constitution space / ρ), not more of the franchise/term axis.
+Model G (village-level genome, no voting) remains the other open modelling direction.
 
 ## Blockers
-None. (Live-network ops require the Bash sandbox disabled — DNS/socket are blocked otherwise.)
+None. (Live-network / Mongo ops require the Bash sandbox disabled — DNS/socket blocked otherwise.)

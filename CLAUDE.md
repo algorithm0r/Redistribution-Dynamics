@@ -70,6 +70,37 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
   `v.policy`) and reuse it for redistribution, drawing, migration, and recording.
   Don't recompute medians per-agent or per-frame.
 
+## Ports — a proposed change, deliberately NOT applied
+
+**Nothing in this project was changed. This is a note for whoever next builds here.**
+
+The sweep servers here default to ``PORT || 8090` (coordinator) and `8091` (figserver)`, and so do two sibling projects
+(PopGenSim, Hierarchical Trades). Seen live on 2026-09-04: Hierarchical Trades and PopGenSim were both occupying 8090/8190 while this project's sweep code still defaults to 8090.
+
+Two consequences, in ascending order of how much they should worry you:
+
+1. Batches collide on startup and get hand-shifted (`PORT=8190`) to get around it. Annoying.
+2. Quieter and much worse: `sweep/worker.mjs` defaults to a fixed coordinator URL and enrolls with
+   **whatever answers**, never checking which collection it reached. Point a worker at a box
+   where a different sweep holds that port and its runs are filed into the wrong
+   Mongo collection (these workers write straight to Mongo, so the pollution is in the data itself) — no error, nothing in any log. That is a data-integrity bug wearing a
+   port-conflict costume, and it is the one worth fixing.
+
+**Suggested, when this code is next touched:** adopt `~/.claude/scaffold/ports.mjs`
+(written and tested 2026-09-04 against a harness; not wired into this project).
+
+- **Use a range, not a number.** Derive the port from (project, collection) into the
+  **8200–8699** band, probe forward when a port is taken, and print the URL actually bound
+  instead of assuming one. The band dodges what is already spoken for on this box and mint
+  (8080 media-dashboard, 8081 Pulse, 8099 castd, 8123 DEM-GPU, 8787 Agora, 8888 the Server).
+- **Then make collisions harmless.** Servers answer `/whoami` with `{project, identity}`;
+  clients call `discover({project, identity})` and **exit if their collection isn't found**
+  rather than attaching to a stranger. This is the half that actually matters — a hash alone
+  will not save you (26 projects into 125 blocks is a birthday problem: ~93% chance of some
+  collision, and 3 real collided pairs across the current project list).
+
+Full rationale: `~/.claude/conventions.md` §4a.
+
 ## Collaboration & gotchas
 
 - **Ground in live state before asserting** — read DEVLOG/source, don't trust
