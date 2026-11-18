@@ -23,6 +23,42 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## 2026-11-18 (late evening) — CORRECTIONS to the syndrome conclusions (after a cold review)
+
+A cold reviewer recomputed the syndrome claims from `analysis/data` with independent code. I
+recomputed each point with my own script, and every one reproduces: `../analysis/scripts/review_checks.mjs`,
+output `analysis/results/review_checks.out.md`. These corrections amend items 4 and 2 of the
+conclusions entry below.
+
+1. **The mirror package is a subset of failures, not a general attractor.** Mirror = λ < .3 and
+   κ > .6 at 50k.
+   - balance_grid: 679/840 (81%) of franchise A/B failures and 333/805 (41%) of franchise-off
+     failures are mirror.
+   - constitution_grid: 71/752 (9%) are mirror, with median θ 0.65; 2 have θ < .4.
+   - In constitution_grid, 557/752 (74%) of failures sit at the syndrome pole (λ > .7, κ < .4)
+     with median coop 0.32. Of those, 323 were above .5 at some sample, and 424 have higher coop
+     in the last 1 000 ticks than 5 000 ticks earlier.
+2. **"At its poles 10–20k ticks before" overstated it.** Median leads over coop's half-move, at
+   pSexual 0 / 0.5 / 1:
+   - half-move: λ −14.5k / −17.8k / −19.7k
+   - 90% move: λ −4.5k / −7.0k / −8.5k; κ −2.4k / −6.3k / −6.1k; φ −1.4k / −3.8k / −3.4k
+
+   Restated: half-way 10–20k ticks before, at the poles by about t*.
+3. **"λ separates the outcomes first, within 100 ticks" holds only when families are pooled.**
+   - Within families: λ separates at 100–1 100 ticks and coop at 100–1 400; κ is first in
+     i8_g4 at pSexual 0; θ is first in base_g4 at pSexual 0.5.
+   - At tick 0, before any dynamics, d already reaches λ +0.73, τ +0.52 and ω −0.41 (pooled,
+     pSexual 0), and ω −0.49 to −0.59 within families.
+   - ω crosses d > 0.5 at tick 200 in i6_g2 at pSexual 0.
+   - The early order is not resolvable above this noise floor. Claim withdrawn.
+4. **The recombination test has per-family gaps.**
+   - λ established − not is +0.03 in i6_g2 at pSexual 0, and +0.10 / +0.04 in base_g4 at
+     pSexual 0.5 / 1. There the failing reps carry the syndrome too.
+   - The κ sd drop (0.122 → 0.011) is mostly 4 off-pole reps: 0.052 without them.
+   - The five families were selected because they establish at every pSexual level.
+5. **constitution_grid final coop is a continuum, not bimodal.** Per 0.1 bin: 139 / 170 / 180 /
+   226 across [0.3, 0.7). Its established-vs-not contrasts split that continuum at 0.5.
+
 ## 2026-11-18 (evening) — CONCLUSIONS from the syndrome tests
 
 Written by the analysis session after the raw block below. Details: `../analysis/FINDINGS.md`,
