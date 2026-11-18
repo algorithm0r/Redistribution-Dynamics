@@ -591,8 +591,9 @@ Loose items noticed but not scheduled into a roadmap line. Lead with type.
       ("Ports") and `~/.claude/conventions.md` §4a.
 - [ ] fix: the 2026-10-20 analysis numbers (pEst per cell, the franchise/term gradient, gene
       means) came from session-scratch caches (DEVLOG calls them throwaway; a filename search
-      of the Claude temp folders on 2026-11-18 found none); nothing in-tree reproduces them. Before the write-up cites them, commit an analysis script (e.g.
-      `sweep/analyze.mjs`: Mongo final-tick gene means → per-cell pEst) and re-derive.
+      of the Claude temp folders on 2026-11-18 found none); nothing in-tree reproduces them. Before the write-up cites them, commit an analysis script (Mongo
+      final-tick gene means → per-cell pEst) and re-derive. → taken up 2026-11-18 by the
+      analysis session, in the new `../analysis/` repo (conventions §2 layout).
       (conventions: nothing anything cites lives in a scratch folder.)
 - [ ] idea: **literature pass before choosing a framing or venue** — none has been done. The
       positive result (individual selection erodes group-beneficial coop) is close to textbook

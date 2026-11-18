@@ -54,10 +54,17 @@ origin through `809cdfd` (pushed 2026-11-18).
   Mongo collection on a port collision).
 
 ## Next action
-Write-up: the franchise/term suppression gradient is the publishable panel. The constitutional
-layer's question is closed; pushing for *new* cooperative regions means structural changes
-(cap-respecting migration, richer constitution space / ρ), not more of the franchise/term axis.
-Model G (village-level genome, no voting) remains the other open modelling direction.
+**Manuscript, under a steward (since 2026-11-18).** Chris made the manager session the steward
+of this project until a manuscript exists. The agreed story is `../paper/STORY.md` (owned by the
+steward). Three sessions launched 2026-11-18, each in its own folder:
+- **rd-lit** → `../lit/`: novelty verdict on the constitutional negative result, method
+  precedents for ω, venue analysis.
+- **rd-analysis** → `../analysis/` (new repo) + `EXPLOG.md` here: re-derive both sweeps with the
+  two-regime stats, the franchise×term confound, the policy-gap test (or its instrumentation
+  spec), draft figures. No new runs.
+- **rd-author** → `../paper/` (new repo): LaTeX, ODD + Methods first, in Chris's voice.
+A reimplementer (instrumentation, ports fix, `expNNN` data protocol, paper-data runs through
+`cpuslot`) comes later, once analysis specifies what is needed and the CPU is free.
 
 ## Blockers
 None. (Live-network / Mongo ops require the Bash sandbox disabled — DNS/socket blocked otherwise.)
