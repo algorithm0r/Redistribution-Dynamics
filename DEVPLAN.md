@@ -594,3 +594,15 @@ Loose items noticed but not scheduled into a roadmap line. Lead with type.
       of the Claude temp folders on 2026-11-18 found none); nothing in-tree reproduces them. Before the write-up cites them, commit an analysis script (e.g.
       `sweep/analyze.mjs`: Mongo final-tick gene means → per-cell pEst) and re-derive.
       (conventions: nothing anything cites lives in a scratch folder.)
+- [ ] idea: **literature pass before choosing a framing or venue** — none has been done. The
+      positive result (individual selection erodes group-beneficial coop) is close to textbook
+      multilevel selection; novelty rests on the institutional/constitutional layer + the
+      negative result, so it hinges on prior work on evolved institutions and voting under group
+      selection. Starting names from the 2026-06-18 design session, unverified: Sober & Wilson;
+      Bowles & Gintis; Boyd & Richerson / Henrich (cultural group selection); Fehr & Gächter
+      (costly punishment, λ); Ostrom (governance); yard-sale / econophysics (Model 1).
+- [ ] idea: paper-readiness items from the 2026-10-20 review, not yet started: bistability
+      stats via `stats.mjs` two-regime p(establish)/level (not the coop>0.5 threshold) with the
+      adaptive-stopping imbalance handled; sensitivity sweeps (cap, migration rates, mutation σ,
+      grid size, epoch); ODD-protocol model description. Venue floated: JASSS, or *Artificial
+      Life* if led by the multilevel-selection / ω-tracer angle.

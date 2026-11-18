@@ -36,9 +36,8 @@ project is now at a write-up / "where next" juncture, not mid-run.
   establishing. Term mapping: voted term gene [0,1] → [1, termMax=50000] ticks.
 
 ## Branches
-`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. Local is
-1 commit ahead of origin (`5359ddd`, the 2026-10-20 doc commit, unpushed) plus this pass's
-uncommitted doc edits.
+`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. In sync with
+origin through `809cdfd` (pushed 2026-11-18).
 
 ## Open
 - Browser UI inputs for `signedThreshold`/`constitutionTerm`/`term` not added (defaults hold;
@@ -49,6 +48,8 @@ uncommitted doc edits.
 - ρ (signed "who receives" allocation gate) still unbuilt (deferred).
 - The 2026-10-20 analysis numbers have no in-tree script behind them (session-scratch caches,
   now gone). Commit an analysis script and re-derive before the write-up cites them (Backlog).
+- No literature pass yet; positioning/novelty depends on it (Backlog), as do the
+  paper-readiness items (bistability stats, sensitivity sweeps, ODD).
 - Sweep port/collection safety bug carried to DEVPLAN Backlog (workers can file into the wrong
   Mongo collection on a port collision).
 
