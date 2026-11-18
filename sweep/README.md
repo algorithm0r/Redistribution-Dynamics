@@ -22,7 +22,7 @@ by indirect `eval` (not a `vm` sandbox, which cost ~7–10× in the hot loop; DE
 | `constitution.json` | `grid-constitution.mjs` | `constitution_grid` | 45 | 1801 | complete 2026-07-18; analyzed 2026-10-20 |
 
 - **balance_grid**: individual-selection union [9] (baseline · β-arm · ind-arm) × group-rate
-  `birthThresholdRate` {1,2,3} × `franchiseMode` {off,A,B} × `pSexual` {0,0.5,1}. ω rides
+  `birthThresholdRate` {2,4,6} × `franchiseMode` {off,A,B} × `pSexual` {0,0.5,1}. ω rides
   along as the inert null.
 - **constitution_grid**: individual {base, i8, i6} × group-rate {1,2,3} × franchise/term
   {off@T1, off@T100, off@T50k, A (term voted), B (term voted)}. Fixed: signed θ/ψ on,

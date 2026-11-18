@@ -258,7 +258,7 @@ economic + two *constitutional*, ψ and T); one is *behavioral*; one (ω) is an 
 | **θ** threshold | policy | who pays: only agents above the θ **wealth-line** are taxed (θ=0 everyone, θ=1 only the very top) — progressivity lives here. The line is set by `PARAMETERS.thresholdMode` (see note below) |
 | **φ** focus | policy | distribute equally (0) ↔ neediest-first (1) |
 | **κ** hub | policy | share the hub (= current richest) keeps before the rest is distributed |
-| **λ** punish | policy | chance a defector's withheld due is destroyed (costly punishment) |
+| **λ** punish | policy | chance a defector's withheld due is destroyed (`a.stock -= due`, `village.js:167`). Nobody pays to punish, so this is *not* costly punishment in the Fehr–Gächter sense; it is a sanction that costs only the defector |
 | **ψ** franchise | policy (meta) | **who votes**: only agents at/above the ψ wealth-line are enfranchised (ψ=0 universal suffrage, ψ=1 only the wealthiest). Same wealth-line as θ but with `≥` so ψ=1 keeps the richest, not nobody. A *constitutional* gene — it doesn't move resources, it reshapes the electorate that decides the other five |
 | **coop** | behavioral | chance the agent actually pays in when the enacted policy asks |
 | **ω** omega | **null** | INERT tracer: mutates and is recorded exactly like a real gene but read by no dynamics (not voted, redistributed, migrated, or scored). The drift/draft baseline — whatever ω does under a regime is *pure* drift/draft, so any real gene that merely tracks ω is drifting, not being selected. See *Genetic draft* below |
@@ -374,8 +374,9 @@ redistribute → consume → **death** → **reproduction** → **fission**; the
     Tiebout sorting).
   - `pMigrateStarve` → if unfed this tick, go to the highest per-capita-stock
     neighbor (fallback random).
-- **Luck** set ~1% net positive (`pNoConsume − pNoGather ≈ 0.01`) so villages
-  creep upward while starvation still bites (keeps `coop` under selection).
+- **Luck** ~~set ~1% net positive (`pNoConsume − pNoGather ≈ 0.01`)~~ → corrected
+  2026-11-18: the code is `pNoGather` 0.2 / `pNoConsume` 0.2, **net zero** (the 2026-06-28
+  default change, "net-zero luck"). Starvation still bites and keeps `coop` under selection.
 - **Cap** is now a **soft** gate via `birthProb` (see *Soft cap* above), not the old
   hard birth/fission cliff. Defaults: cap 100, social-gene mutation σ 0.02.
 
@@ -394,9 +395,13 @@ it. A neutral trait therefore doesn't diffuse and spread (as panmictic drift wou
 run to run), which is easy to misread as selection. Two controls disentangle this:
 - **ω (omega)** is an inert tracer — it drifts/drafts with zero causal effect, so it
   marks the null. If a "real" gene's trajectory looks like ω's, it's draft, not
-  selection. (Confirmed empirically: in `franchiseMode: 'off'`, ψ is causally inert and
-  drafts to random poles exactly like ω; a single `off` run's ψ value is meaningless —
-  average replicates, which sit near 0.5.)
+  selection. (Confirmed empirically: in `franchiseMode: 'off'`, ψ drafts to random poles
+  exactly like ω; a single `off` run's ψ value is meaningless — average replicates, which
+  sit near 0.5. Correction 2026-11-18: ψ is *nearly* inert under 'off', not fully — it
+  still enters the misfit-migration distance, `village.js:248`. Under 'off' the cleaner
+  second tracer is `term`, which nothing reads there. And a flat *mean* across asexual reps
+  does not by itself distinguish draft from selection: drafted genes go to random poles, so
+  the distinction is distributional — see the lit session's note in `../lit/POSITIONING.md`.)
 - **`pSexual`** turns on sexual reproduction (per-gene independent assortment between
   two fed villagers), which restores recombination and dissolves the linkage. Under
   recombination a genuinely selected gene (e.g. `coop`) keeps its signal while a drafting
