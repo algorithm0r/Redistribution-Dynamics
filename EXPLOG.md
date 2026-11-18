@@ -126,7 +126,18 @@ cell values): off-T1 0.000, off-T100 0.087, off-T50k 0.151, A 0.160, B 0.150
 
 Final gene means, franchise-off cells, establishing (n 757) vs not (n 389) reps:
 τ 0.69/0.60, θ 0.70/0.72, φ 0.89/0.72, κ 0.12/0.31, λ 0.89/0.73, ψ 0.50/0.50, ω 0.49/0.50,
-term 0.50/0.48 (`analysis/results/syndrome.csv`).
+term 0.50/0.48 (`analysis/results/syndrome.csv`). θ established − not over all 1801 reps: −0.012.
+
+Added 2026-11-18 (second pass, `analysis/scripts/psi.mjs` → `results/psi.csv`). Final
+population-mean ψ across reps, sd and count polar (< .2 / > .8), established | not:
+off-T1 sd 0.325 | 0.288, polar 98/94 | 28/24 (n 313 | 105); off-T100 0.271 | 0.227, 49/55 | 7/13;
+off-T50k 0.175 | 0.139, 9/10 | 4/2; A 0.155 | 0.143, 3/1 | 3/5; B 0.174 | 0.148, 4/7 | 4/2.
+ω sd at the same levels: 0.177 | 0.190, 0.164 | 0.152, 0.159 | 0.140, 0.151 | 0.135, 0.155 | 0.137.
+ψ means 0.48–0.53 at every level.
+Establishment tick, establishing reps, median of (i) start of the final run > 0.5 vs (ii) first
+entry into a ≥ 5 000-tick run > 0.5: T1 20 700 vs 19 100 (n 313 / 299); T100 31 300 vs 28 700
+(262 / 234); T50k 39 500 vs 35 700 (182 / 142); A 38 400 vs 34 200 (131 / 107); B 39 300 vs
+35 300 (161 / 124).
 
 ---
 
@@ -184,3 +195,10 @@ Endpoint RMS rank gap (5 economic genes; mean of cell values): off 0.000, A 0.22
 
 Final gene means, franchise-off cells, establishing (n 577) vs not (n 805) reps:
 τ 0.60/0.51, θ 0.56/0.43, φ 0.89/0.67, κ 0.12/0.51, λ 0.87/0.35, ψ 0.51/0.49, ω 0.51/0.50.
+θ established − not over all 2223 reps: 0.184.
+
+Added 2026-11-18 (second pass, `analysis/scripts/psi.mjs`). Final population-mean ψ: off
+established | not: sd 0.301 | 0.261, polar (< .2 / > .8) 159/172 | 170/134 (n 577 | 805); ω sd
+0.165 | 0.166, polar 17/24 | 26/20. Franchise A (not established, n 432): ψ mean 0.82, sd 0.080,
+1 < .2, 352 > .8; the one established A rep: ψ 0.12. Franchise B (n 408, none established):
+ψ mean 0.81, sd 0.049, 0 < .2, 255 > .8.
