@@ -23,6 +23,166 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## 2026-11-18 (evening) — CONCLUSIONS from the syndrome tests
+
+Written by the analysis session after the raw block below. Details: `../analysis/FINDINGS.md`,
+lead section.
+
+1. The core of the syndrome, robust in both sweeps and at every pSexual level, is **λ high,
+   κ low, φ high**. θ is part of it only under the one-sided gate (balance_grid); under the
+   signed gate (constitution_grid) θ ≈ 0.70 in every rep, whatever the outcome. τ is part of it
+   only in constitution_grid; in the matched balance_grid families, failing reps end with τ as
+   high as or higher than established reps.
+2. The syndrome survives free recombination at unchanged strength, and its spread across reps
+   narrows. Linkage does not build it.
+3. Under recombination there is almost no agent-level association among the syndrome genes, or
+   between them and coop. The package is co-occurring directional selection on each element, not
+   a genetic complex held by correlational selection. Between villages it has little covariance
+   beyond each element tracking cooperation: τ–λ trade off, and θ–λ and τ–θ go together weakly.
+4. Policy assembles before cooperation. λ separates the eventual outcomes first (within 100
+   ticks at every pSexual level; at pSexual 0 partly from the initial draw), and the package
+   reaches its poles 10–20k ticks before mean coop crosses 0.5. Failing worlds lock into a mirror
+   package: λ ≈ 0.1, κ ≈ 0.8, θ ≈ 0.2–0.3.
+5. Selection on λ is not relaxed after establishment, because cooperation never completes
+   (coop ≈ 0.8, so λ keeps firing).
+6. Open: why the package is favoured. Short-term village size selects slightly against λ, τ and
+   low κ. Villages never go extinct, and the records hold no births or migrant flows per village.
+   The wealth-proxy hypothesis gets no support at the endpoint. Instrumentation:
+   `../analysis/SPECS.md` S4; control runs: S5.
+
+## 2026-11-18 (evening) — SYNDROME TESTS on the existing sweeps · RAW · re-analysis, no new runs
+
+**Question.** Is the policy–cooperation syndrome built by selection or by draft? Does it survive
+free recombination? Is it a package or separate shifts? What assembles first? (Tests 1–5 of
+`../lit/SYNDROME_TEST_DESIGN.md`.)
+
+**Data.**
+- constitution_grid (1801 reps, all pSexual 0) and balance_grid (2223 reps), as in the
+  retrospective blocks below.
+- A second read-only pull covers the five balance_grid families that establish at all three
+  pSexual levels: `{base_g2, base_g4, i6_g2, i8_g2, i8_g4}_foff_s{0, 0.5, 1}`, 15 cells, 568 reps.
+  It took full `geneMeans` and `geneCovariance` series for all 568 reps, and full
+  `villageRecords` for 155 of them (per cell ≤ 8 established + ≤ 4 not, in insertion order).
+
+**Method.**
+- Commands: `../analysis/scripts/{syndrome,wealth,extract2,series,outcome_traj,village}.mjs`
+  (run lines in FINDINGS).
+- Established = final mean coop > 0.5.
+- t* = start of the final unbroken run of mean coop > 0.5. Timed reps have 5k ≤ t* ≤ 45k:
+  94 / 114 / 141 at pSexual 0 / 0.5 / 1.
+
+**RAW RESULTS.**
+
+Test 1. Share of established reps with the final gene mean > 0.5:
+
+| sweep | λ | φ | κ | τ | θ | ψ | ω |
+|---|---|---|---|---|---|---|---|
+| constitution_grid (1049 est.) | 1.00 | 0.99 | 0.03 | 1.00 | 1.00 | 0.51 | 0.50 |
+| balance_grid foff (577 est.) | 1.00 | 1.00 | 0.03 | 0.94 | 0.94 | 0.53 | 0.51 |
+
+- constitution_grid sd across established reps: λ 0.045, φ 0.054, θ 0.039, ω 0.165.
+- Established − not:
+  - constitution_grid: θ −0.012 [−0.018, −0.005]; τ +0.065 to +0.115 by level
+  - balance_grid franchise off: θ +0.129 [0.109, 0.149]
+
+Test 2. Matched families, family-stratified mean of established reps at pSexual 0 / 0.5 / 1
+(n est. 129 / 135 / 161):
+
+| gene | stratified mean | sd across reps |
+|---|---|---|
+| λ | 0.89 / 0.89 / 0.88 | 0.039 / 0.021 / 0.027 |
+| φ | 0.90 / 0.90 / 0.90 | 0.035 / 0.013 / 0.015 |
+| κ | 0.10 / 0.09 / 0.09 | 0.122 / 0.011 / 0.011 |
+| θ | 0.55 / 0.58 / 0.58 | 0.123 / 0.025 / 0.016 |
+| τ | 0.63 / 0.61 / 0.60 | not listed |
+| ω | 0.50 / 0.51 / 0.50 | 0.197 / 0.120 / 0.126 |
+
+- Stratified established − not:
+  - λ +0.31 / +0.52 / +0.41
+  - κ −0.28 / −0.48 / −0.40
+  - φ +0.22 / +0.16 / +0.11
+  - θ +0.07 / +0.23 / +0.17
+  - τ +0.03 [−0.01, 0.08] / −0.05 [−0.07, −0.03] / −0.03 [−0.07, 0.02]
+- At pSexual 0, 4/129 established reps have κ > 0.5 and 9/129 have θ < 0.4. At pSexual 0.5 and
+  1: 0 and 0.
+
+Test 3. Within-population variance relative to ω's, before t* → last 5k ticks:
+- λ 0.34 → 0.16 / 0.18 → 0.11 / 0.19 → 0.11
+- |mean drift| from t* + 2k to the end: λ 0.022 / 0.017 / 0.017; ω 0.076 / 0.068 / 0.059.
+
+Test 4, agent level. Sign-adjusted correlation with coop, window t* ± 5k:
+
+| pSexual | λ | τ | κ | φ | ω |
+|---|---|---|---|---|---|
+| 0 | 0.157 | 0.196 | 0.091 | 0.081 | −0.014 |
+| 0.5 | 0.017 | 0.036 | 0.008 | 0.006 | 0.000 |
+| 1 | 0.010 | 0.021 | 0.003 | 0.003 | −0.001 |
+
+Largest gene–gene r: 0.068 / 0.019 / 0.010.
+
+Test 4, village level, at pSexual 0 / 0.5 / 1:
+- V1, corr(village coop, enacted gene):
+  - λ 0.37 / 0.20 / 0.10
+  - θ 0.14 / 0.12 / 0.06
+  - κ 0.15 / 0.06 / 0.03
+  - φ 0.08 / 0.04 / 0.03
+  - τ 0.17 / 0.03 / 0.04
+  - ψ 0.01 / −0.01 / 0.01
+- V2, partial on coop:
+  - τ–λ −0.10 / −0.06 / −0.04
+  - θ–λ +0.12 / +0.06 / +0.03
+  - τ–θ +0.10 / +0.07 / +0.06
+  - all other pairs within ±0.04
+- V4, β on relative village size 500 ticks later (model 2, per SD):
+  - λ −0.021 / −0.017 / −0.016
+  - τ −0.021 / −0.029 / −0.028
+  - κ (flipped) −0.007 / −0.006 / −0.004
+  - φ −0.003 / −0.004 / −0.004
+  - θ +0.018 / +0.016 / +0.017
+  - coop +0.019 / −0.000 / −0.001
+  - quadratic |γ| ≤ 0.004
+  - at 2 000 ticks all |β| ≤ 0.010
+- Villages gone 2 000 ticks later: 0.04% / 0.05% / 0.06%. Mean village size: 31.5 / 28.4 / 27.8.
+
+Assembly. First tick with standardised outcome difference > 0.5, held for 500 ticks, at
+pSexual 0 / 0.5 / 1:
+- λ 100 / 100 / 100
+- κ 100 / 100 / 800
+- coop 300 / 200 / 400
+- θ 900 / 200 / 1 100
+- φ 800 / 2 300 / 1 500
+- τ and ω never
+
+λ at tick 0: mean difference +0.011 / +0.008 / −0.001 (d 0.70 / 0.46 / −0.04).
+
+Median half-move lead over coop's half-move (ticks):
+- λ −14 500 / −17 750 / −19 700
+- κ −12 000 / −16 650 / −17 900
+- φ −10 050 / −14 600 / −16 200
+- τ −1 400 / −4 700 / −6 950
+
+V3b. Villages turning cooperative vs same-rep stayers, share on the syndrome side 2 000 ticks
+before:
+- κ +0.20 / +0.13 / +0.09
+- λ +0.16 / +0.13 / +0.09
+- θ +0.10 / +0.11 / +0.08
+- φ +0.07 / +0.11 / +0.12
+- τ +0.07 / +0.18 / +0.13
+- ψ −0.03 / +0.11 / +0.04
+- Crossers 759 / 283 / 187, in 36–38 reps with both kinds.
+
+Failing reps (matched families, medians at 20k ticks, pSexual 0 / 0.5 / 1):
+- λ 0.08 / 0.09 / 0.09
+- κ 0.83 / 0.84 / 0.83
+- θ 0.23 / 0.18 / 0.23
+- τ 0.61 / 0.71 / 0.70
+
+Test 5. Within-village r(stock, coop) in the final 256-agent sample:
+- established reps: −0.005 to −0.023 by level
+- failing reps: −0.017 to −0.100
+
+---
+
 ## 2026-11-18 — CONCLUSIONS from the re-analysis of constitution_grid and balance_grid
 
 Written by the analysis session after the raw blocks below. Interpretation lives here, not there.
