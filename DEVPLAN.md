@@ -240,7 +240,7 @@ dynamics in 5).
 
 ---
 
-### Model 2 — Villages & Group Selection (built; grid live under sweep)
+### Model 2 — Villages & Group Selection (built; both sweeps complete)
 
 A grid of **villages**, each running the within-village exchange over its own
 population every tick. Selection acts at two levels: *within* villages (defectors
@@ -248,8 +248,9 @@ out-earn cooperators) and *between* villages (which institutions let a village
 persist and spread on the grid). This is the multilevel-selection model; the grid
 + migration rate is the dial that decides which level wins.
 
-**The genome (7 genes, every value in [0,1]).** Six define the *institution* (five
-economic + one *constitutional*); one is *behavioral*.
+**The genome (9 genes, every value in [0,1]).** Seven define the *institution* (five
+economic + two *constitutional*, ψ and T); one is *behavioral*; one (ω) is an inert null.
+ω was added 2026-07-17 and T 2026-07-18 (DEVLOG).
 
 | gene | role | meaning |
 |---|---|---|
@@ -405,22 +406,23 @@ run to run), which is easy to misread as selection. Two controls disentangle thi
 **Model G** then adds a village-level policy genome (no voting; village-replicator
 inheritance on fission) over the identical mechanics, for the V-vs-G comparison.
 
-**Status:** Model V grid fully built, evolving, and under a live distributed sweep.
-Social genome τ,θ,φ,κ,λ,ψ,coop + inert tracer ω evolves; **soft-cap** reproduction
-(`birthProb`, replaced the hard cap + dead fission); sexual reproduction (`pSexual`);
-percentile/relative wealth-line modes. A headless adaptive coordinator (`sweep/`) runs
-parameter grids across machines (12 local + 5 mint), Mongo as source of truth. **Now
-running:** `balance_grid` (243 cells: individual-selection union × group-rate × franchise
-× pSexual). **Next:** analyze `balance_grid`; build the fig/aggregation dashboard (8091);
-Model G (village-level genome) for the V-vs-G comparison.
+**Status:** Model V grid fully built and evolving. Social genome τ,θ,φ,κ,λ,ψ,T,coop +
+inert tracer ω evolves; **soft-cap** reproduction (`birthProb`, replaced the hard cap +
+dead fission); sexual reproduction (`pSexual`); percentile/relative wealth-line modes. A
+headless adaptive coordinator (`sweep/`) runs parameter grids across machines (12 local +
+5 mint), Mongo as source of truth, with a fig server on :8091. **Both sweeps complete:**
+`balance_grid` (243 cells: individual-selection union × group-rate × franchise × pSexual;
+coop establishes in 14–16/243, all franchise-off) and `constitution_grid` (45 cells; see
+*Constitutional layer* below). **Next:** the write-up; Model G (village-level genome) for
+the V-vs-G comparison; structural routes to new cooperative regions (Backlog).
 
 ---
 
 ### Constitutional layer — signed θ/ψ + termed constitutions (BUILT 2026-07-18; ANALYZED 2026-10-20 — negative result)
 
 Two ideas that both push on the *constitutional* (meta) layer — the genes that
-reshape *who decides and how* rather than move resources. **Both are now built** and live
-under the `constitution_grid` sweep: signed filters (`signedThreshold` + `wealthGate`,
+reshape *who decides and how* rather than move resources. **Both are built** and were
+swept in `constitution_grid` (complete 2026-07-18): signed filters (`signedThreshold` + `wealthGate`,
 village.js) on θ/ψ only (ρ deferred), and termed constitutions (the `term` meta-gene in
 agent.js + `Village.constitution`/`electedTerm` in village.js, world tick threaded in
 world.js). Defaults preserve the old model (`signedThreshold` off, `constitutionTerm` 1).
@@ -587,3 +589,8 @@ Loose items noticed but not scheduled into a roadmap line. Lead with type.
       file runs into the wrong Mongo collection silently (data-integrity bug). Adopt the
       `/whoami` + `discover()` guard and a port *range*. Rationale in project `CLAUDE.md`
       ("Ports") and `~/.claude/conventions.md` §4a.
+- [ ] fix: the 2026-10-20 analysis numbers (pEst per cell, the franchise/term gradient, gene
+      means) came from session-scratch caches (DEVLOG calls them throwaway; a filename search
+      of the Claude temp folders on 2026-11-18 found none); nothing in-tree reproduces them. Before the write-up cites them, commit an analysis script (e.g.
+      `sweep/analyze.mjs`: Mongo final-tick gene means → per-cell pEst) and re-derive.
+      (conventions: nothing anything cites lives in a scratch folder.)

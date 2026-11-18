@@ -8,9 +8,10 @@ before touching code.
 1. `DEVPLAN.md` — the living design. Vision, the dimension-space framing of
    redistribution regimes, Model 1 / Model 2 (genome) / Model V (village grid).
    This is current truth; amend it in place as the design moves.
-2. `DEVLOG.md` — what happened, newest at top. Read the top few entries to learn
+2. `STATUS.md` — where things stand right now, on one screen.
+3. `DEVLOG.md` — what happened, newest at top. Read the top few entries to learn
    the state of play before doing anything.
-3. `~/.claude/conventions.md` — the cross-project engineering standard this repo
+4. `~/.claude/conventions.md` — the cross-project engineering standard this repo
    is one of the exemplars for. Read it before structural/DB/deploy work.
 
 ## What this is
@@ -25,16 +26,19 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
 | File | Role |
 |---|---|
 | `parameters.js` | The one `PARAMETERS` global (domain + framework/db) + load/save-UI. **Source of truth**, serialized verbatim into every saved packet. |
-| `agent.js` | `Agent`: stock, hunger, frozen boon/bane genes, social genome (τ,θ,φ,κ,λ,coop), gather/consume/spawnChild. |
+| `agent.js` | `Agent`: stock, hunger, frozen boon/bane genes, social genome (τ,θ,φ,κ,λ,ψ,coop + inert ω + `term`), gather/consume/spawnChild (incl. sexual recombination, `pSexual`). |
 | `population.js` | Single-population model (Model 1 regimes + `genome` regime). |
-| `village.js` | Model V village layer: `genePolicy` (the vote), `applyGenomePolicy`, `pourWaterFill`, `Village`. |
-| `world.js` | Model V grid: `World` (torus), reproduction/fission/extinction/migration/catastrophe, `WorldDataManager`, `WorldObserver`. |
+| `village.js` | Model V village layer: `genePolicy` (the vote), `wealthGate` (signed θ/ψ), `applyGenomePolicy`, `pourWaterFill`, `Village` (incl. termed constitution). |
+| `world.js` | Model V grid: `World` (torus), soft-cap reproduction (`birthProb`; fission code is dead)/extinction/migration/catastrophe, `WorldDataManager`, `WorldObserver`. |
 | `datamanager.js` / `observer.js` | Single-population data + render entities. |
 | `gameengine.js` `timer.js` `util.js` `graph.js` `histogram.js` `assetmanager.js` | Generic framework (GameEngine lineage). |
 | `main.js` | Browser entry: socket connect, tab/button wiring, run cycling. Loads last. |
 | `runs.js` | Per-run `PARAMETERS` overrides (experiment definitions). |
 | `runner.js` | Headless Node worker-thread batch runner; loads the **same** sim files via `vm`, writes to MongoDB. |
-| `smoketest.js` / `worldsmoke.js` | Headless, no-Mongo sanity runs with printed verification numbers. |
+| `smoketest.js` / `worldsmoke.js` | Headless, no-Mongo sanity runs with printed verification numbers (`worldsmoke` ends in three PASS/FAIL mechanism checks). |
+| `fillcompare.js` / `migstats.js` | One-off headless probes (grid fill speed; migration-vector instrumentation). |
+| `dashboard.html` / `dashboard.js` | Run dashboard: aggregates a collection's replicates from Mongo and steps through runs. |
+| `sweep/` | Distributed adaptive sweep (coordinator/workers, :8090) + fig server (:8091). Own README. |
 | `index.html` / `style.css` | Canvas + tabbed control panel. |
 
 ## Never violate
@@ -48,13 +52,15 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
   run reproduces from its stored parameters. No hidden state.
 - **Boon/bane (`pNoGather`/`pNoConsume`) are frozen during a run** once evolution
   of the social genome is in play — only the social genes mutate in `spawnChild`.
-- **The shared `../Server` (socket.io → Mongo) is referenced, never copied.**
-  Point `PARAMETERS.ip` at it (currently `research.climbinggiants.com:8888`).
+- **The shared Server (socket.io → Mongo) is referenced, never copied.** It is not
+  in this tree; point `PARAMETERS.ip` at it (currently `research.climbinggiants.com:8888`).
 - **No build step, no modules, no frameworks.** `<script>` tags in dependency
   order; everything global. `main.js` is wired last.
-- **Browser and headless share the exact sim files** via the `vm` context in
-  `runner.js`/smoke loaders — never fork the sim core. If you add a sim file,
-  add it to those loaders too.
+- **Browser and headless share the exact sim files** — never fork the sim core.
+  `runner.js` and the smoke/probe scripts load them in a `vm` context;
+  `sweep/headless.mjs` loads them into the main realm by indirect `eval` (~7–10×
+  faster). If you add a sim file, add it to every loader, including `SIM_FILES`
+  in `sweep/headless.mjs`.
 - **Secrets never committed.** No keys/certs/tokens in-tree.
 
 ## Style
@@ -109,6 +115,6 @@ Full rationale: `~/.claude/conventions.md` §4a.
 - The live site is HTTPS (Pages); the DB socket must be HTTPS with a valid cert or
   the browser blocks it. The visual sim runs fine with the DB indicator red —
   logging is optional for the demo.
-- `runner.js` rewrites top-level `const`/`let`/`class` → `var` so the sim files
-  load in a `vm` context. Keep new top-level declarations rewrite-safe.
+- `runner.js` and `sweep/headless.mjs` rewrite top-level `const`/`let`/`class` →
+  `var` so the sim files load headless. Keep new top-level declarations rewrite-safe.
 - Confirm irreversible ops (DB drops, file overwrites) before running them.

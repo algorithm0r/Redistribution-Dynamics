@@ -2,6 +2,27 @@
 
 Newest entries at the top.
 
+## 2026-11-18 — doc-staleness pass (docs only)
+
+**Done:** Checked every doc against the code and git. Stale and fixed: top-level README
+(still described Stage 1 / Model 1 only); `sweep/README.md` (described the retired 225-cell
+`select_draft_grid`, minN 3, STALE_MS 120s, Mongo-resume as future, fig dashboard as unbuilt);
+CLAUDE.md document map (no `sweep/`, dashboard, probes; genome list missing ψ/ω/term) and its
+shared-loader rule (said all headless loading is `vm`; `sweep/headless.mjs` uses main-realm
+eval); DEVPLAN Model V header/status ("live under sweep", "Now running balance_grid",
+"7 genes"). STATUS and the PA hub were already current.
+
+**Changed:** README.md, sweep/README.md, CLAUDE.md, DEVPLAN.md (status lines + one Backlog
+line), STATUS.md (Updated, State provenance, Branches, Open), this entry. No code.
+
+**State:** `worldsmoke` PASS ×3 @ `v0.1.0-9-g5359ddd` (franchise/signed/constitution checks;
+cooperative-pool coop 0.975, defector-pool 0.400). Found: the 10-20 analysis numbers have no
+in-tree script; the scratch caches DEVLOG cites are gone (filename search of the Claude temp
+folders found none). Added to Backlog.
+
+**Next:** Commit an analysis script and re-derive the 10-20 numbers before any write-up;
+then the write-up, or Model G / structural routes per Backlog. Unpushed: `5359ddd` + this pass.
+
 ## 2026-10-20 — constitution_grid analyzed: a negative result (constitutional layer opens no new cooperation regions)
 
 **Done:** Closed out the long-orphaned `constitution_grid` sweep. It ran to **1801 reps /

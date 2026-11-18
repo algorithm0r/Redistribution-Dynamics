@@ -1,11 +1,11 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-10-20
+Updated: 2026-11-18 (doc-staleness pass; no code touched)
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close)
 
 Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release.
-Drift since reads as `v0.1.0-N-g<sha>`; this session's doc-only commit sits at
-`v0.1.0-8-ga76ab5e` + 1.
+Drift since reads as `v0.1.0-N-g<sha>`; HEAD before this pass was `v0.1.0-9-g5359ddd`.
+No code has changed since 2026-07-20 (`a76ab5e`); everything after is docs.
 
 ## Stage
 Model V live with the full **constitutional (meta) layer**: signed θ/ψ filters (either tail)
@@ -15,8 +15,8 @@ question for the constitutional layer is **answered** (negative result — see b
 project is now at a write-up / "where next" juncture, not mid-run.
 
 ## State
-- **Builds/runs** (unchanged this session — analysis only, no sim code edited). Last verified
-  `worldsmoke` PASS ×3 (franchise-check, signed-check, constitution-check) @ 2026-07-18.
+- **Builds/runs.** `worldsmoke` PASS ×3 (franchise-check, signed-check, constitution-check)
+  @ `v0.1.0-9-g5359ddd`, 2026-11-18 (1.5 s). Browser page not checked this pass.
 - **`constitution_grid` complete + ANALYZED 2026-10-20:** 1801 reps / 45 cells (~40/cell), all
   written 2026-07-18 (confirmed in Mongo; nothing since). **Negative result:** neither signed
   θ/ψ, nor locking a constitution (term T), nor enfranchising voters (A/B) opens any new
@@ -36,8 +36,9 @@ project is now at a write-up / "where next" juncture, not mid-run.
   establishing. Term mapping: voted term gene [0,1] → [1, termMax=50000] ticks.
 
 ## Branches
-`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. Local
-commits ahead of origin (unpushed as of this session).
+`main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. Local is
+1 commit ahead of origin (`5359ddd`, the 2026-10-20 doc commit, unpushed) plus this pass's
+uncommitted doc edits.
 
 ## Open
 - Browser UI inputs for `signedThreshold`/`constitutionTerm`/`term` not added (defaults hold;
@@ -46,6 +47,8 @@ commits ahead of origin (unpushed as of this session).
   future option.
 - Migration ignores the cap → villages reach ~1.7× cap (accepted gap).
 - ρ (signed "who receives" allocation gate) still unbuilt (deferred).
+- The 2026-10-20 analysis numbers have no in-tree script behind them (session-scratch caches,
+  now gone). Commit an analysis script and re-derive before the write-up cites them (Backlog).
 - Sweep port/collection safety bug carried to DEVPLAN Backlog (workers can file into the wrong
   Mongo collection on a port collision).
 
