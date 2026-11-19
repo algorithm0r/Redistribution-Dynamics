@@ -1,7 +1,7 @@
 {
  "seed": 20261118,
- "captured": "2026-11-19T01:48:17.557Z",
- "commit": "v0.1.0-17-ga165835-dirty",
+ "captured": "2026-11-19T01:50:09.044Z",
+ "commit": "v0.1.0-18-g32e5cb0-dirty",
  "scenarios": {
   "V_off_T1_g2": {
    "keys": {
@@ -11,8 +11,8 @@
     "migrations": "860594323c57cddf",
     "geneMeans": "f002428db185d827",
     "geneHistograms": "201ba735d0025e0a",
-    "geneVillageMeans": "41f4c65a9e617d6f",
-    "geneVillageHistograms": "0f59bca8209d7bd2",
+    "geneVillageMeans": "6bc27e0aa792e7c2",
+    "geneVillageHistograms": "f737f4277e9f14f5",
     "geneCoopMeans": "7eda6b55ba59c38e",
     "geneCoopHistograms": "1e2360b0cb83e9b4",
     "geneOrder": "7c9ce8956db57a5b",
@@ -78,7 +78,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 3772
+   "ms": 3773
   },
   "V_A_signed_pct": {
    "keys": {
@@ -88,8 +88,8 @@
     "migrations": "58e4c2dfd6712cf3",
     "geneMeans": "f6b54daa626b3383",
     "geneHistograms": "7439f4fa75c522f7",
-    "geneVillageMeans": "771dcfdf8bdb60a2",
-    "geneVillageHistograms": "923ccb4e2f201baa",
+    "geneVillageMeans": "1dbeeff1340aa6ff",
+    "geneVillageHistograms": "6be73d3c745b4f08",
     "geneCoopMeans": "89c6dbff0c5d9e41",
     "geneCoopHistograms": "4290b6a9281392a8",
     "geneOrder": "7c9ce8956db57a5b",
@@ -155,7 +155,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 3207
+   "ms": 3222
   },
   "V_B_relative_i6": {
    "keys": {
@@ -165,8 +165,8 @@
     "migrations": "6d202f6e6cc99a01",
     "geneMeans": "5af141aba3bb07e1",
     "geneHistograms": "50e540345baaed31",
-    "geneVillageMeans": "48e9a80a6cc1f957",
-    "geneVillageHistograms": "04da07750e4693ac",
+    "geneVillageMeans": "00589cf39f2dc52a",
+    "geneVillageHistograms": "51abdd48a73e062c",
     "geneCoopMeans": "c41573ffb3594d78",
     "geneCoopHistograms": "541930264dac5dfe",
     "geneOrder": "7c9ce8956db57a5b",
@@ -232,7 +232,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 1758
+   "ms": 1755
   },
   "V_off_T100_sex05": {
    "keys": {
@@ -242,8 +242,8 @@
     "migrations": "dbdb9ad68a27a7c8",
     "geneMeans": "5ad3e827e35dbbce",
     "geneHistograms": "8c2e3a9dd392c3d2",
-    "geneVillageMeans": "ed3a416cee7d56d8",
-    "geneVillageHistograms": "560e2e2f194ce729",
+    "geneVillageMeans": "523b6e78c1f8d1eb",
+    "geneVillageHistograms": "8e8eed1d53b66e09",
     "geneCoopMeans": "a1084f769e73870a",
     "geneCoopHistograms": "151d7f2391c6066b",
     "geneOrder": "7c9ce8956db57a5b",
@@ -309,7 +309,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 2061
+   "ms": 2071
   },
   "V_off_beta2_sex1": {
    "keys": {
@@ -319,8 +319,8 @@
     "migrations": "2582add44f91a186",
     "geneMeans": "dd87380b9583fb78",
     "geneHistograms": "62012f1faf97bd98",
-    "geneVillageMeans": "93f6b484cec510d2",
-    "geneVillageHistograms": "defaada40cde7d77",
+    "geneVillageMeans": "8fee09fc9755adae",
+    "geneVillageHistograms": "ee99f3b752beec0c",
     "geneCoopMeans": "34d0a8386ded7e2b",
     "geneCoopHistograms": "e222b6d9e179cc14",
     "geneOrder": "7c9ce8956db57a5b",
@@ -386,7 +386,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 1614
+   "ms": 1623
   },
   "S_coop_pool": {
    "keys": {
@@ -396,8 +396,8 @@
     "migrations": "4e2b8c4fe313d218",
     "geneMeans": "4287b99273f033d4",
     "geneHistograms": "0b80c1481b20745b",
-    "geneVillageMeans": "c93229bfd72c5d65",
-    "geneVillageHistograms": "5fccf31b9c4eb44a",
+    "geneVillageMeans": "91827af021473a48",
+    "geneVillageHistograms": "1a4e83199414c258",
     "geneCoopMeans": "36b8c1f89c44dce1",
     "geneCoopHistograms": "3ec484349d31e936",
     "geneOrder": "7c9ce8956db57a5b",
@@ -473,8 +473,8 @@
     "migrations": "4083b265ff8d8dfc",
     "geneMeans": "19a199d1ef6ae030",
     "geneHistograms": "1f77aa042696eeb6",
-    "geneVillageMeans": "bcc0e8707621b479",
-    "geneVillageHistograms": "aa808e42a1d89355",
+    "geneVillageMeans": "70165df18b0b955f",
+    "geneVillageHistograms": "7e9bbccb1d3a8880",
     "geneCoopMeans": "98da4af12718cab8",
     "geneCoopHistograms": "b1bed403d0291de4",
     "geneOrder": "7c9ce8956db57a5b",
@@ -550,8 +550,8 @@
     "migrations": "3a30a97fdeda44b9",
     "geneMeans": "d00ef9d600e1917a",
     "geneHistograms": "084f6a25bd878a82",
-    "geneVillageMeans": "3391ca4fd0dcc389",
-    "geneVillageHistograms": "f3e0c64f694a306d",
+    "geneVillageMeans": "cfb21a8ce256fd20",
+    "geneVillageHistograms": "a5a4beebc50448c4",
     "geneCoopMeans": "06ca4ce73229c813",
     "geneCoopHistograms": "db48e6586c7cce08",
     "geneOrder": "7c9ce8956db57a5b",
@@ -617,7 +617,7 @@
     "collection": "regress",
     "ip": "https://research.climbinggiants.com:8888"
    },
-   "ms": 31
+   "ms": 28
   },
   "P_pool_evo": {
    "keys": {

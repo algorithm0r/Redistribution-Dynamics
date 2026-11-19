@@ -321,11 +321,15 @@ class WorldDataManager {
         this._lastMig = { starve: mc.starve, misfit: mc.misfit, random: mc.random };
 
         // Each village's per-gene value, computed once: reuse the tick's cached
-        // policy for the 5 voted genes; coop is medianed here (it isn't voted).
+        // policy for the voted genes (incl. the enacted term gene); coop and the inert ω
+        // aren't voted, so they are medianed over the members here. (Before 2026-11-18
+        // omega/term were missing here, so geneVillageMeans.omega/.term were NaN -> null
+        // and their village histograms all-zero.)
         const villageVals = villages.map(v => {
             const pol = v.policy || genePolicy(v.agents);
             return { tau: pol.tau, theta: pol.theta, phi: pol.phi, kappa: pol.kappa,
-                     lambda: pol.lambda, psi: pol.psi, coop: median(v.agents.map(a => a.coop)) };
+                     lambda: pol.lambda, psi: pol.psi, coop: median(v.agents.map(a => a.coop)),
+                     omega: median(v.agents.map(a => a.omega)), term: pol.term };
         });
 
         this.geneNames.forEach(g => {
