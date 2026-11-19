@@ -148,6 +148,16 @@ const PARAMETERS = {
     // Adds data.tracers (agent mean, mean and SD of village medians, per sample). 0 = none.
     extraTracers: 0,
 
+    // ── Controls (analysis/SPECS.md S5) ─────────────────────────────────────
+    // Policy-shuffle shadow: each village still votes its own constitution, but ENACTS that of
+    // a random other village, re-drawn every tick (demography unchanged). villageRecords gain
+    // `go` (the village's own vote) beside `g` (enacted). Changes the run (sim RNG + dynamics).
+    policyShuffle: false,
+    policyShuffleMisfit: 'enacted',   // misfit migration compares agents with the 'enacted' (shuffled) or 'own' policy
+    // Linked/unlinked inert pair: omegaL inherited with coop, omegaU from a random fed villager
+    // at each birth (tracer RNG stream: the run is unchanged). Adds data.linkedTracers.
+    linkedTracers: false,
+
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)
     reportingPeriod: 100,     // record statistics every N ticks

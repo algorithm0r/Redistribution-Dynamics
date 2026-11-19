@@ -110,7 +110,8 @@ class World {
 
     update() {
         const vs = this.villages();
-        vs.forEach(v => v.step(this.tick));   // thread the world tick so villages can term-limit their constitution
+        if (!PARAMETERS.policyShuffle) vs.forEach(v => v.step(this.tick));   // thread the world tick so villages can term-limit their constitution
+        else this.stepShuffled(vs);
         vs.forEach(v => this.reproduceGroup(v));
         this.applyCatastrophes();
         this.cullEmpty();
@@ -119,6 +120,27 @@ class World {
 
         this.tick++;
         if (this.dataManager.update()) loadNextRunParameters();
+    }
+
+    /**
+     * S5 policy-shuffle shadow (PARAMETERS.policyShuffle). Every village gathers and votes its
+     * own constitution as usual (`ownPolicy`), then ENACTS the constitution of a uniformly
+     * drawn OTHER living village, re-drawn every tick; demography (births, deaths, migration
+     * rules) is unchanged. If the policy-coop association and outcome divergence survive this,
+     * they are not selection on the village's own enacted policy (SPECS S5). A lone village
+     * enacts its own. Draws from the sim stream (it is a model mechanism, not a diagnostic).
+     */
+    stepShuffled(vs) {
+        vs.forEach(v => v.stepVote(this.tick));
+        const n = vs.length;
+        for (let i = 0; i < n; i++) {
+            const v = vs[i];
+            v.ownPolicy = v.constitution;
+            let j = i;
+            if (n > 1) { j = randomInt(n - 1); if (j >= i) j++; }
+            v.policy = vs[j].constitution;
+        }
+        vs.forEach(v => v.stepEconomy());
     }
 
     cullEmpty() {
@@ -166,6 +188,7 @@ class World {
             v.growthPoints -= th;
             const parent = pickByStock(fed);   // ∝ stock^birthWealthBias (β=0 → uniform)
             const child = reproduce(parent, fed);   // sexual (recombine w/ a fed mate) w.p. pSexual, else clone
+            if (PARAMETERS.linkedTracers) unlinkedFrom(child, fed);   // S5: unlinked tracer from a random fed villager
             v.agents.push(child);
             if (PARAMETERS.recordSyndrome) flowAdd(v, 'bG', 'birth', child);
         }
@@ -204,7 +227,10 @@ class World {
         // Cache each village's enacted policy once per tick (misfit needs it);
         // migrationDest would otherwise recompute the 5 medians for every agent.
         const villages = this.villages();
-        if (PARAMETERS.pMigrateMisfit > 0) villages.forEach(v => v.cachedPolicy = v.policy || v.enactedPolicy());
+        // Under the shuffle shadow, policyShuffleMisfit 'own' sorts migrants against the village's
+        // OWN vote instead of the (shuffled) enacted policy.
+        const own = PARAMETERS.policyShuffle && PARAMETERS.policyShuffleMisfit === 'own';
+        if (PARAMETERS.pMigrateMisfit > 0) villages.forEach(v => v.cachedPolicy = (own && v.ownPolicy) || v.policy || v.enactedPolicy());
 
         // Collect moves from the pre-migration state, then apply atomically.
         const moves = [];
@@ -464,6 +490,9 @@ class WorldDataManager {
         this.tracers = kTr > 0 ? { names: Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1)),
                                    mean: [], villageMean: [], villageSD: [] } : null;
 
+        // S5 linked/unlinked tracer pair (PARAMETERS.linkedTracers): per sample, [omegaL, omegaU].
+        this.linked = PARAMETERS.linkedTracers ? { names: ['omegaL', 'omegaU'], mean: [], coopCorr: [], villageMean: [], villageSD: [] } : null;
+
         // S1 policy gap (PARAMETERS.recordPolicyGap): per-sample summaries, not per-village rows.
         this.policyGap = PARAMETERS.recordPolicyGap ? {
             genes: POLICY_GAP_GENES, absTotal: [], absLag: [], absFranchise: [], rankTotal: [],
@@ -553,6 +582,10 @@ class WorldDataManager {
                 gp: v.growthPoints,
             };
             if (synd) rec.sy = syndromeVillage(v);
+            if (PARAMETERS.policyShuffle) {   // the village's own vote, beside the enacted (shuffled) g
+                const o = v.ownPolicy || pol;
+                rec.go = [o.tau, o.theta, o.phi, o.kappa, o.lambda, o.psi];
+            }
             return rec;
         }));
         if (synd) {
@@ -573,6 +606,29 @@ class WorldDataManager {
                 return electorates.get(v);
             };
             this.syndrome.samples.push({ tick: tickNow, rows: tagged.slice(0, m).map(([a, v]) => sampleRow(a, v, electorateOf(v))) });
+        }
+        if (this.linked) {
+            // [omegaL, omegaU]: agent mean, corr with coop across agents, mean and SD of village medians.
+            const L = this.linked, mean = [0, 0], keys = ['omegaL', 'omegaU'];
+            let sc = 0, scc = 0; const sx = [0, 0], sxx = [0, 0], sxc = [0, 0];
+            for (const a of agents) {
+                sc += a.coop; scc += a.coop * a.coop;
+                for (let j = 0; j < 2; j++) { const x = a[keys[j]]; sx[j] += x; sxx[j] += x * x; sxc[j] += x * a.coop; }
+            }
+            const corr = [0, 1].map(j => {
+                if (!n) return NaN;
+                const vx = sxx[j] / n - (sx[j] / n) ** 2, vc = scc / n - (sc / n) ** 2, cxc = sxc[j] / n - (sx[j] / n) * (sc / n);
+                return vx > 1e-12 && vc > 1e-12 ? cxc / Math.sqrt(vx * vc) : NaN;
+            });
+            const occupied = villages.filter(v => v.pop > 0);
+            const vm = [0, 0], vsd = [0, 0];
+            for (let j = 0; j < 2; j++) {
+                mean[j] = n ? sx[j] / n : 0;
+                const meds = occupied.map(v => medianOf(v.agents, keys[j]));
+                const mu = meds.length ? meds.reduce((s, x) => s + x, 0) / meds.length : 0;
+                vm[j] = mu; vsd[j] = meds.length ? Math.sqrt(meds.reduce((s, x) => s + (x - mu) ** 2, 0) / meds.length) : 0;
+            }
+            L.mean.push(mean); L.coopCorr.push(corr); L.villageMean.push(vm); L.villageSD.push(vsd);
         }
         if (this.tracers) {
             const k = this.tracers.names.length, mean = new Array(k).fill(0), vm = new Array(k).fill(0), vsd = new Array(k).fill(0);
@@ -661,6 +717,7 @@ class WorldDataManager {
         if (this.policyGap) packet.data.policyGap = this.policyGap;
         if (this.syndrome) packet.data.syndrome = this.syndrome;
         if (this.tracers) packet.data.tracers = this.tracers;
+        if (this.linked) packet.data.linkedTracers = this.linked;
         if (typeof socket !== "undefined" && socket) {
             socket.emit("insert", packet);
             console.log("Data sent:", PARAMETERS.runName);

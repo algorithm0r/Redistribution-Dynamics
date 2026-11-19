@@ -336,6 +336,16 @@ class Village {
      *  The enacted policy is computed once here and cached on `this.policy` for
      *  reuse by drawing, migration, and data collection this tick. */
     step(worldTick) {
+        this.stepVote(worldTick);
+        this.policy = this.constitution;   // enacted policy this tick = the (frozen) constitution
+        this.stepEconomy();
+    }
+
+    /** First half of a tick: gather, then (if the term has elapsed) elect the constitution.
+     *  Split from stepEconomy only so the S5 policy-shuffle shadow can let EVERY village vote
+     *  before any village enacts another's policy; step() runs the two back to back, exactly
+     *  as before the split. */
+    stepVote(worldTick) {
         this.agents.forEach(a => a.gather());
         // Constitution: re-vote only when the term has elapsed (or at founding / if no tick
         // is threaded). Between elections the frozen constitution is applied to the evolving
@@ -353,7 +363,11 @@ class Village {
                 for (const a of out.voters) a._eVoted = true;
             }
         }
-        this.policy = this.constitution;   // enacted policy this tick = the (frozen) constitution
+    }
+
+    /** Second half of a tick: apply the enacted policy `this.policy`, consume, score growth,
+     *  die, self-breed. */
+    stepEconomy() {
         applyGenomePolicy(this.agents, this.policy);
         this.agents.forEach(a => a.consume());
 
@@ -373,11 +387,13 @@ class Village {
         const th = PARAMETERS.individualBirthThreshold;
         if (th <= 0) return;
         const parents = this.agents.filter(a => a.stock >= th);   // snapshot: newborns don't breed this tick
+        const fed = PARAMETERS.linkedTracers ? this.agents.filter(a => !a.starved) : null;   // S5 unlinked-tracer donors
         for (const a of parents) {
             // Soft cap: breed with prob birthProb(pop); on failure keep the stock (bank it).
             if (rand() >= birthProb(this.agents.length)) continue;
             a.stock -= th;
             const child = a.spawnChild();
+            if (fed) unlinkedFrom(child, fed);
             this.agents.push(child);
             if (PARAMETERS.recordSyndrome) flowAdd(this, 'bI', 'birth', child);
         }

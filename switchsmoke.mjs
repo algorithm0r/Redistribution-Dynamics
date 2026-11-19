@@ -121,7 +121,7 @@ const SMOKES = {
                                        + sy.ended.reduce((s, ee) => s + ee.reduce((t, e) => t + e.fc[i], 0), 0));
             console.log(`    flow totals ${FC.map((k, i) => k + ' ' + tot[i]).join(' · ')}`);
             const mig = d.migrations, migTot = ['starve', 'misfit', 'random'].map(k => mig[k].reduce((a, b) => a + b, 0));
-            check(tot[ix('eS')] + tot[ix('eM')] + tot[ix('eR')] === tot[ix('iS')] + tot[ix('iM')] + tot[ix('iR')], 'every emigrant is someone\'s immigrant');
+            check(['S', 'M', 'R'].every(k => tot[ix('e' + k)] === tot[ix('i' + k)]), 'every emigrant is someone\'s immigrant, per vector');
             const lin = recs.at(-1).map(r => r.sy.lin);
             console.log(`    last record: ${lin.length} villages, lineages per village mean ${f3(lin.reduce((s, l) => s + l[2], 0) / lin.length)}, Simpson mean ${f3(lin.reduce((s, l) => s + l[1], 0) / lin.length)}, modes {${[...new Set(lin.map(l => l[0]))].sort((a, b) => a - b).join(',')}}`);
             check(lin.every(l => l[0] >= 0 && l[0] < 10 && l[1] >= 0 && l[1] < 1), 'lineage mode is a founding-village index 0..9, Simpson in [0,1)');
@@ -155,6 +155,54 @@ const SMOKES = {
         check(w.length === 6, `village records carry [ω, ω1..ω5] medians (${w.map(f3).join(' ')})`);
         const q = await quiet({ ...cfg, extraTracers: 5, seed: SEED + 1 });
         check(sha(q.data.tracers.mean) !== sha(t.mean), 'a different seed gives different tracer paths (the check can fail)');
+    },
+
+    async shuffle() {
+        console.log('\n== S5 policyShuffle ==');
+        const G = ['tau', 'theta', 'phi', 'kappa', 'lambda'];
+        const corr = (xs, ys) => {
+            const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+            let sxy = 0, sxx = 0, syy = 0;
+            for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; syy += (ys[i] - my) ** 2; }
+            return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : NaN;
+        };
+        const cfg = { ...V, epoch: 6000, franchiseMode: 'off' };
+        const base = await quiet(cfg);
+        check(!base.data.villageRecords[1][0].go, 'shuffle off: no `go` in village records');
+        for (const misfit of ['enacted', 'own']) {
+            const p = await quiet({ ...cfg, policyShuffle: true, policyShuffleMisfit: misfit });
+            const late = p.data.villageRecords.slice(-20);   // last 2000 ticks
+            const rows = late.flat();
+            const rEO = G.map((g, i) => corr(rows.map(r => r.g[i]), rows.map(r => r.go[i])));
+            const gap = G.map((g, i) => rows.reduce((s, r) => s + Math.abs(r.g[i] - r.go[i]), 0) / rows.length);
+            const ownCoop = G.map((g, i) => corr(rows.map(r => r.go[i]), rows.map(r => r.coop)));
+            const enCoop = G.map((g, i) => corr(rows.map(r => r.g[i]), rows.map(r => r.coop)));
+            // Every enacted g is some village's own vote in the same sample (the donor), unless the donor ended this tick.
+            let found = 0, total = 0;
+            for (const s of late) {
+                const owns = new Set(s.map(r => JSON.stringify(r.go)));
+                for (const r of s) { total++; if (owns.has(JSON.stringify(r.g))) found++; }
+            }
+            const lastCoop = p.data.geneMeans.coop.at(-1), baseCoop = base.data.geneMeans.coop.at(-1);
+            console.log(`  misfit=${misfit.padEnd(7)} corr(enacted, own) ${G.map((g, i) => g + ' ' + f3(rEO[i])).join(' · ')}`);
+            console.log(`  ${''.padEnd(15)} mean |enacted−own| ${gap.map(f3).join(' ')} | corr(coop, own) ${ownCoop.map(f3).join(' ')} | corr(coop, enacted) ${enCoop.map(f3).join(' ')}`);
+            console.log(`  ${''.padEnd(15)} enacted = another village's own vote in ${found}/${total} records | final mean coop ${f3(lastCoop)} (no shuffle ${f3(baseCoop)})`);
+            check(rEO.every(r => Math.abs(r) < 0.2), `misfit=${misfit}: enacted policy decoupled from the village's own vote (|corr| < 0.2 for τθφκλ)`);
+            check(gap.every(x => x > 0.02), `misfit=${misfit}: enacted differs from own (mean |e−own| > 0.02 per gene)`);
+            check(found / total > 0.95, `misfit=${misfit}: enacted policies are drawn from other villages' own votes (${f3(found / total)})`);
+        }
+    },
+
+    async linked() {
+        console.log('\n== S5 linkedTracers ==');
+        for (const ps of [0, 1]) {
+            const cfg = { ...V, epoch: 6000, franchiseMode: 'off', pSexual: ps };
+            const p = await nonPerturbing(cfg, { linkedTracers: true }), L = p.data.linkedTracers, last = L.mean.length - 1;
+            const lateCorr = j => { const xs = L.coopCorr.slice(-20).map(r => r[j]).filter(Number.isFinite); return xs.reduce((s, x) => s + Math.abs(x), 0) / Math.max(1, xs.length); };
+            console.log(`  pSexual ${ps}: [omegaL, omegaU] agent mean ${L.mean[last].map(f3).join(', ')} | village SD ${L.villageSD[last].map(f3).join(', ')} | late mean |corr(coop, ·)| ${f3(lateCorr(0))}, ${f3(lateCorr(1))} | ω ${f3(p.data.geneMeans.omega[last])}`);
+            check(L.mean.length === 61 && L.mean.flat().every(x => x >= 0 && x <= 1), `pSexual ${ps}: both tracers recorded at 61 samples, in [0,1]`);
+            check(L.villageSD[last].every(x => x > 0), `pSexual ${ps}: both vary between villages`);
+        }
     },
 };
 
