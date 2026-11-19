@@ -47,10 +47,14 @@ const HB = process.env.CPUSLOT_HEARTBEAT;   // cpuslot progress file (absent out
 const writeHb = obj => { if (HB) try { fs.writeFileSync(HB, JSON.stringify(obj)); } catch {} };
 
 let COORD;
-try { COORD = await discover({ project: PROJECT, identity: IDENTITY }); }
+// Identity = <database>/<collection>, matching coordinator.mjs: a --scratch worker never joins a
+// production coordinator, nor the reverse.
+const DB_BASE = process.env.MONGO_DB || 'redistribution_dynamics';
+const WHO = `${DB_BASE}${SCRATCH ? '_scratch' : ''}/${IDENTITY}`;
+try { COORD = await discover({ project: PROJECT, identity: WHO }); }
 catch (e) { console.error(`${tag}: ${e.message}`); process.exit(3); }
 
-const db = createDB({ transport: 'socket', server: serverIp(), db: 'redistribution_dynamics', scratch: SCRATCH,
+const db = createDB({ transport: 'socket', server: serverIp(), db: DB_BASE, scratch: SCRATCH,
     project: PROJECT, repo: SIM_DIR, results: path.join(SIM_DIR, 'results', SCRATCH ? '_scratch' : '') });
 let ex;
 try { ex = await db.experiment(LABEL); }

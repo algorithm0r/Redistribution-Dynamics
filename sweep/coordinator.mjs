@@ -6,7 +6,7 @@
 //   node coordinator.mjs <grid.json> [--scratch]
 //
 // Identity, not port (conventions §4a; ~/.claude/scaffold/ports.mjs): the coordinator's
-// identity is its grid's Mongo collection. It binds a port derived from the project name in
+// identity is <database>/<collection> of its grid. It binds a port derived from the project name in
 // the 8200-8699 band (probing past collisions; PORT=<n> pins one), announces the port it got,
 // and answers GET /whoami with {project, identity}. Workers find it by identity and refuse
 // any other, so a port collision can no longer file runs into the wrong collection.
@@ -48,6 +48,9 @@ const SYNC_MS  = parseInt(process.env.SYNC_MS  || '180000');   // re-load result
 const GRACE_MS = parseInt(process.env.GRACE_MS || '15000');    // on startup, wait for in-flight workers' heartbeats to re-register before dispatching (anti-dupe on coordinator-only restart)
 const MONGO_IP = process.env.MONGO_IP || 'https://research.climbinggiants.com:8888';
 const MONGO_DB = (process.env.MONGO_DB || 'redistribution_dynamics') + (SCRATCH ? '_scratch' : '');
+// /whoami identity = <database>/<collection>: a worker writing to another database (e.g. a
+// --scratch worker against a production coordinator) does not match and is refused.
+const whoami = (db, collection) => `${db}/${collection}`;
 
 const grid = JSON.parse(fs.readFileSync(GRID, 'utf8'));
 const cells = grid.map(c => ({ id: c.id, config: c.config, reps: c.reps || null, dispatched: 0, samples: [], done: false,
@@ -55,6 +58,7 @@ const cells = grid.map(c => ({ id: c.id, config: c.config, reps: c.reps || null,
 const byId = new Map(cells.map(c => [c.id, c]));
 const COLLECTION = (grid[0] && grid[0].config && grid[0].config.collection) || 'select_draft_grid';
 if (grid.some(c => c.config.collection !== COLLECTION)) { console.error('coordinator: grid mixes collections; refusing'); process.exit(2); }
+const WHO = whoami(MONGO_DB, COLLECTION);
 
 // The data-protocol gate.
 const LABEL = (/^(exp\d{3,})_/.exec(COLLECTION) || [])[1];
@@ -314,7 +318,7 @@ const server = http.createServer(withWhoami(async (req, res) => {
         const etaMs = ratePerMin > 0 ? (remainingReps / ratePerMin) * 60000 : null;
         return json(res, { cells: cells.length, sufficient, bistable, dispatched: started, completed,
             running: live.length, workers: live, hosts,
-            identity: COLLECTION, db: MONGO_DB, uptimeMs, sessionCompletes, ratePerMin, remainingReps, remainingMax, etaMs,
+            identity: WHO, collection: COLLECTION, db: MONGO_DB, uptimeMs, sessionCompletes, ratePerMin, remainingReps, remainingMax, etaMs,
             detail: cells.map(c => {
                 const S = c.samples, n = S.length;
                 return { id: c.id, n, done: c.done,
@@ -324,8 +328,8 @@ const server = http.createServer(withWhoami(async (req, res) => {
             }) });
     }
     res.writeHead(404); res.end('not found');
-}, { project: PROJECT, identity: COLLECTION, role: 'coordinator' }));
-const { port } = await bind(server, { project: PROJECT, identity: COLLECTION, role: 'coordinator', host: '0.0.0.0' });
+}, { project: PROJECT, identity: WHO, role: 'coordinator' }));
+const { port } = await bind(server, { project: PROJECT, identity: WHO, role: 'coordinator', host: '0.0.0.0' });
 console.log(`coordinator for ${COLLECTION} (db ${MONGO_DB}) on port ${port}. Local workers find it by identity:
   node launch.mjs ${COLLECTION}${SCRATCH ? ' --scratch' : ''}        (cpuslot, one-shot workers)
 Remote workers pin it:  COORD=http://<this-host>:${port} node launch.mjs ${COLLECTION} --direct N${SCRATCH ? ' --scratch' : ''}`);

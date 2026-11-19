@@ -28,7 +28,9 @@ const opt = k => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null
 const SCRATCH = args.includes('--scratch');
 if (!IDENTITY) { console.error('usage: node launch.mjs <identity> [--runs N | --direct N] [--scratch]'); process.exit(2); }
 
-const COORD = await discover({ project: PROJECT, identity: IDENTITY }).catch(e => { console.error(e.message); process.exit(3); });
+// Identity = <database>/<collection>, as coordinator.mjs and worker.mjs.
+const WHO = `${process.env.MONGO_DB || 'redistribution_dynamics'}${SCRATCH ? '_scratch' : ''}/${IDENTITY}`;
+const COORD = await discover({ project: PROJECT, identity: WHO }).catch(e => { console.error(e.message); process.exit(3); });
 const worker = path.join(HERE, 'worker.mjs');
 const wargs = SCRATCH ? ['--scratch'] : [];
 
