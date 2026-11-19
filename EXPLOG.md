@@ -23,6 +23,41 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## 2026-11-19 — exp001–exp004: coordinator outage, queue drained; oversized exp001 packets · RAW
+
+**What happened.** All four coordinators stopped within 7 s of each other at 22:37:40 on
+2026-11-18 (last writes to `sweep/logs/coord/*.out`), cause not found. They had been started
+with `Start-Process` from the steward's agent shell. The Windows Update restart at 23:35
+(System event 1074, "Service pack (Planned)") came an hour later and is not the cause. With no
+coordinator, every queued one-shot worker exited 3 ("no coordinator found") in about a second,
+so cpuslot drained the whole queue by 22:59.
+
+**Where each experiment stood (2026-11-19 07:48).**
+- exp001: 699 workers exited 0. Mongo holds 684 runs. Every pre-registered seed (s1–s30; s1–s10
+  for `shufown`) exists in Mongo or as a JSON copy, except **s30 in 13 cells** (cut off at 22:37).
+- exp002, exp003, exp004: **no runs.** Every worker exited 3 (14 of exp003's and 3 of exp004's
+  were `killed` by cpuslot instead).
+
+**Oversized packets (exp001).** 16 runs, almost all `base_g4_*_shuffle`, made packets of
+16.2–19.3 MB BSON, over Mongo's 16 MB limit. The pre-run probe was 12.4 MB from one seed. `db.js`
+did not store them in Mongo and wrote the JSON copy only
+(`results/exp001_syndrome-controls/<run>.json`). One more run (`i8_g2_foff_s0_shuffle_s9`) hit
+an ack timeout but is in Mongo. Because a run missing from Mongo counts as not done, the
+coordinator issued replacement seeds (s31–s35) to those cells.
+- **For analysis:** use seeds 1–30 (1–10 for `shufown`) from Mongo **plus** the JSON copies, and
+  ignore the replacement seeds. Packet size grows with population, and population grows with
+  cooperation. So dropping the oversized runs, or swapping in replacements, would bias p(establish)
+  in the shuffle arm, which is the primary control.
+- Fixing storage of packets over 16 MB is a `db.js` (scaffold) change; open.
+
+**Restart.** Coordinators restarted 2026-11-19 07:48, this time detached through WMI
+(`Win32_Process.Create`, hidden window, `CPUSLOT_LIGHT=1`). A first try at 07:46 used visible
+console windows; all four received Ctrl+C within a minute (`^C` in their stderr) and stopped.
+All four experiments were re-queued at 07:49: exp001 16 runs (fills s30), exp002 800, exp003
+≤3240, exp004 450. The runs now stamp `v0.1.0-36-g2fb5cc4` (docs-only change since `29098b6`).
+
+---
+
 ## Paper runs exp001–exp004 — PRE-REGISTERED 2026-11-18 (steward), before any run
 
 Chris approved the paper runs on 2026-11-18 ("as long as you use the CPU slot app you can

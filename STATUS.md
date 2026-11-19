@@ -1,6 +1,6 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-11-18 night (steward; paper runs launched)
+Updated: 2026-11-19 morning (steward; paper runs re-queued after a coordinator outage)
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close).
 The reimplementer's diff `a165835..cc458f1` had an independent code review on 2026-11-18. It
 found no data-corrupting bug and verified all four claims; its five plumbing fixes are in
@@ -19,12 +19,20 @@ as cpuslot shares the pool:
 
 | exp | collection | runs | coordinator port |
 |---|---|---|---|
-| exp001 | `exp001_syndrome-controls` (S4/S5, first in queue) | 700 fixed | 8248 |
-| exp002 | `exp002_term-ladder` (S1) | 800 fixed | 8460 |
+| exp001 | `exp001_syndrome-controls` (S4/S5) | 700 fixed; 684 in Mongo + 16 JSON-only, s30 refilling | 8384 |
+| exp002 | `exp002_term-ladder` (S1) | 800 fixed | 8248 |
 | exp003 | `exp003_franchise-fixed-t` (S2) | adaptive, ≤3240 | 8672 |
-| exp004 | `exp004_long-200k` (S3) | 450 fixed | 8384 |
+| exp004 | `exp004_long-200k` (S3) | 450 fixed | 8460 |
 
-Coordinators run detached (logs `sweep/logs/coord/`); each one's live dashboard is at its port.
+**2026-11-18 22:37: all four coordinators stopped (cause unknown) and the queue drained.**
+exp001 was nearly done; exp002–exp004 had no runs. Everything was re-queued 2026-11-19 07:49.
+Also, 16 exp001 shuffle packets were over 16 MB and exist only as JSON copies; analysis must
+include them. See the EXPLOG entry of 2026-11-19.
+
+Coordinators run detached through WMI (`Win32_Process.Create`, hidden window, `CPUSLOT_LIGHT=1`;
+logs `sweep/logs/coord/`); each one's live dashboard is at its port. **If a coordinator is down,
+queued workers exit 3 at once and the queue drains**, so check the coordinators before trusting
+the queue.
 Pool: http://localhost:8000/cpu/. If a coordinator dies (reboot), restart it with
 `node coordinator.mjs grids/<collection>.json` from `sweep/` (it resumes from Mongo), then
 `node launch.mjs <collection>` re-queues what is missing. When a sweep is done:
