@@ -82,7 +82,7 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
 ## Ports — APPLIED 2026-11-18 (the note below is the history)
 
 `sweep/coordinator.mjs` now binds through `sweep/ports.mjs` (vendored from the scaffold) with
-`/whoami` = {project: 'Redistribution Dynamics', identity: <collection>}; `worker.mjs` and
+`/whoami` = {project: 'Redistribution Dynamics', identity: <database>/<collection>}; `worker.mjs` and
 `launch.mjs` find it by identity and refuse any other (`COORD=` pins a remote one, still
 identity-checked). The figserver still defaults to :8091 (it only reads). The original note:
 

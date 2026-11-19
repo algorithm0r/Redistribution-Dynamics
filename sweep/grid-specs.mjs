@@ -11,7 +11,7 @@
 //   long               S3   15 cells: individual {base,i8,i6} × g1 × {off@T1, off@T100, off@T50k, A, B}
 //                           at 200 000 ticks, reportingPeriod 400. 30 reps.
 //   syndrome-controls  S4/S5  20 cells: {base_g2, base_g4, i6_g2, i8_g2, i8_g4} franchise off × pSexual
-//                           {0,1} × {own policy, policy-shuffle shadow}. 30 reps. Add --misfit-own for a
+//                           {0,1} × {own policy, policy-shuffle shadow}. 30 reps. Add --misfit-own [N] for a
 //                           third arm (shuffle with misfit migration against the village's own vote).
 //
 // S1–S3 use the constitution_grid base (signed θ/ψ, percentile, pSexual 0); S4/S5 use the
@@ -22,6 +22,8 @@ import fs from 'node:fs';
 
 const [design, collection] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const MISFIT_OWN = process.argv.includes('--misfit-own');
+// The misfit-own arm is the smaller secondary shuffle arm (steward, 2026-11-18): N reps per cell, default 10.
+const MISFIT_OWN_REPS = (() => { const i = process.argv.indexOf('--misfit-own'), v = parseInt(process.argv[i + 1]); return i >= 0 && v > 0 ? v : 10; })();
 if (!design || !collection || !/^exp\d{3,}_[a-z0-9][a-z0-9-]{0,19}$/.test(collection)) {
     console.error('usage: node grid-specs.mjs <franchise-fixedT|term-ladder|long|syndrome-controls> <expNNN_slug> [--misfit-own]');
     process.exit(2);
@@ -63,10 +65,10 @@ if (design === 'franchise-fixedT') {
 } else if (design === 'syndrome-controls') {
     const REC = { recordSyndrome: true, extraTracers: 5, linkedTracers: true, villageRecordEvery: 10, syndromeEvery: 10 };
     const FAM = [['base', 2], ['base', 4], ['i6', 2], ['i8', 2], ['i8', 4]];
-    const ARMS = [['own', {}], ['shuffle', { policyShuffle: true, policyShuffleMisfit: 'enacted' }]];
-    if (MISFIT_OWN) ARMS.push(['shufown', { policyShuffle: true, policyShuffleMisfit: 'own' }]);
-    for (const [ik, g] of FAM) for (const ps of [0, 1]) for (const [ak, arm] of ARMS)
-        add(`${ik}_g${g}_foff_s${ps}_${ak}`, { ...BAL_BASE, ...INDIV[ik], ...REC, ...arm, birthThresholdRate: g, franchiseMode: 'off', pSexual: ps }, 30);
+    const ARMS = [['own', {}, 30], ['shuffle', { policyShuffle: true, policyShuffleMisfit: 'enacted' }, 30]];
+    if (MISFIT_OWN) ARMS.push(['shufown', { policyShuffle: true, policyShuffleMisfit: 'own' }, MISFIT_OWN_REPS]);
+    for (const [ik, g] of FAM) for (const ps of [0, 1]) for (const [ak, arm, reps] of ARMS)
+        add(`${ik}_g${g}_foff_s${ps}_${ak}`, { ...BAL_BASE, ...INDIV[ik], ...REC, ...arm, birthThresholdRate: g, franchiseMode: 'off', pSexual: ps }, reps);
 } else { console.error(`unknown design '${design}'`); process.exit(2); }
 
 fs.mkdirSync(new URL('./grids/', import.meta.url), { recursive: true });

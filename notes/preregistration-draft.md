@@ -6,8 +6,9 @@ Drafted 2026-11-18 by the reimplementer. Nothing here has been run. Labels are p
 in `sim/EXPLOG.md`. Specs: `analysis/SPECS.md`. Grids: `node sweep/grid-specs.mjs <design>
 <expNNN_slug>` writes exactly the cells below.
 
-**Code:** sim `main` at the commit that adds `sweep/grid-specs.mjs` (after `0c7af5d`). Every
-run is seeded, and its document carries `PARAMETERS.id` (exp, run, seed, commit, dirty, host).
+**Code:** sim `main` at or after the commit carrying the 2026-11-18 review fixes (the one that
+adds this paragraph). Every run is seeded, and its document carries `PARAMETERS.id` (exp, run,
+seed, commit, dirty, host).
 A saved run re-runs byte-identical from its stored `_parameters` (checked 2026-11-18).
 
 **Seeds (all experiments):** the coordinator gives each cell seeds 1, 2, 3, … (run name
@@ -93,28 +94,29 @@ starve 0.2, `reportingPeriod` 100, `epoch` 50 000 (except expC), `catastropheCha
   - Linked/unlinked pair: how much is draft?
   - Policy-shuffle shadow: does the policy–coop association survive when villages enact
     another village's policy?
-- **Slug:** `syndrome-controls`. **Design:** `syndrome-controls` (add `--misfit-own` for the
-  optional third arm).
-- **Cells (20, or 30 with the third arm):** families {base_g2, base_g4, i6_g2, i8_g2, i8_g4}
-  × franchise off × pSexual {0, 1} × arm:
+- **Slug:** `syndrome-controls`. **Design:** `syndrome-controls --misfit-own` (steward's
+  decision 2).
+- **Cells (30):** families {base_g2, base_g4, i6_g2, i8_g2, i8_g4} × franchise off × pSexual
+  {0, 1} × arm:
   - `own`: as normal;
-  - `shuffle`: `policyShuffle: true`, misfit migration against the enacted (shuffled) policy;
-  - optional `shufown`: shuffle, misfit migration against the village's own vote.
+  - `shuffle` (the primary control): `policyShuffle: true`, misfit migration against the
+    enacted (shuffled) policy;
+  - `shufown` (smaller, secondary): shuffle, misfit migration against the village's own vote.
 
   Balance base.
 - **Diagnostics:** `recordSyndrome: true`, `extraTracers: 5`, `linkedTracers: true`,
   `syndromeEvery: 10` and `villageRecordEvery: 10` (1 000-tick windows), population samples
   every 5 000 ticks × 256 agents (defaults). Tracers and recording use their own RNG streams,
   so they leave the trajectory unchanged (checked). The shuffle arm changes the run by design.
-- **Reps:** fixed 30 per cell (600 runs; 900 with the third arm).
+- **Reps:** fixed; 30 per cell for `own` and `shuffle`, 10 per cell for `shufown` (700 runs).
+  "Smaller" is the steward's word; 10 is my number (`--misfit-own N` changes it).
 - **Run length:** 50 000 ticks.
 - **Packet:** `own` 10.7 MB; `shuffle` 12.4 MB (measured; limit 16).
-- **CPU:** `own` 300 × ~80 s + `shuffle` 300 × ~45 s ≈ **10 CPU-h**; the third arm adds
-  ≈ 4 CPU-h.
+- **CPU:** `own` 300 × ~80 s + `shuffle` 300 × ~45 s + `shufown` 100 × ~45 s ≈ **11 CPU-h**.
 
 ## Total
 
-≈ **140 CPU-h** (≈ 155 with the third arm). That is about 12 h of the whole 12-slot pool if
+≈ **141 CPU-h**. That is about 12 h of the whole 12-slot pool if
 nothing else runs; cpuslot interleaves other projects, so expect longer wall time. mint can
 take a share through `launch.mjs --direct`.
 
@@ -136,28 +138,46 @@ in DEVLOG). Run time scales with mean population, about 0.45–0.5 µs per agent
 These are one seed each. Cooperating cells are larger and slower, so treat the totals as
 ±30%.
 
-## Decisions for the steward / analysis session before registering
+## Decisions (steward, 2026-11-18)
 
-1. **S4's premise does not hold: villages turn over fast.**
-   - At the default `catastropheChance` 0.001 (per populated neighbour per tick), a full grid
-     loses about 0.40 villages per tick to catastrophe: 4 033 wiped in 10 000 ticks, mean 28.6
-     members at the wipe.
-   - The cell is re-founded by migrants the next tick (median 1 tick), so a village lives
-     about 250 ticks.
-   - "Villages essentially never go extinct (0.04–0.06%)" is what cell-level (r, c) records
-     show, not what happens to villages.
-   - So group selection here probably runs largely through wipe-and-recolonise. A 1 000-tick
-     syndrome window is longer than most village lives.
-   - The instrumentation records every ended village (id, cause, size, flow counts) and gives
-     every village a unique id, so this is measurable. Decide whether 1 000-tick windows are
-     right, or whether to trade other records for finer windows (500-tick windows put the
-     shuffle arm at 16.3 MB, over the limit).
-2. **Shuffle arm, misfit migration.** Whether migrants sort against the enacted (shuffled)
-   policy or the village's own vote changes what "demography unchanged" means. The draft runs
-   `enacted`; `--misfit-own` adds the other.
-3. **expB families and reps** (base_g2, i8_g1; 40 fixed), or the adaptive rule.
-4. **Packet warnings.** Every config is above db.js's 4 MB warning (the constant 2 MB of
-   `geneCoopHistograms` alone keeps even a thinned default packet at 5.4 MB); all are under
-   16 MB. Accept the warnings, or ask for a histogram-thinning switch.
-5. **Grouping.** expD puts the shuffle control in the same experiment as its baseline (same
-   model and measures, paired by seed); split it if the EXPLOG should number it separately.
+1. **Windows: keep 1 000-tick syndrome windows** (`syndromeEvery: 10`). Villages turn over
+   about every 250 ticks: at the default `catastropheChance` 0.001 a full grid loses about
+   0.40 villages per tick (4 033 in 10 000 ticks), and the cell is re-founded by migrants the
+   next tick. So most villages begin and end inside one window. Their lives are carried by the
+   ended-village rows (`data.syndrome.ended`: id, cause, size at the end, flow counts) and the
+   per-cause gene-sum aggregates (`endedSum`). "Villages essentially never go extinct" (SPECS
+   S4) describes cells, not villages.
+2. **Shuffle: `enacted` is the primary arm**, plus a smaller `--misfit-own` arm (`shufown`).
+3. **expB: 40 fixed reps** per cell, families base_g2 and i8_g1.
+4. **Packets: accept the > 4 MB warnings.** Every config is between 5.4 and 12.4 MB of BSON,
+   under the 16 MB limit.
+5. **Grouping: the shuffle control stays in expD**, paired with its baseline by seed.
+
+## Semantics and caveats (from the 2026-11-18 independent review)
+
+- **The shuffle and the policy gap.** Under `policyShuffle` a village enacts another
+  village's constitution, but `recordPolicyGap` measures the village's **own** sitting
+  constitution against its members. In franchise mode B, the gap's "vote held now" `n` and the
+  samples' `elig` also gate on the own constitution's ψ, as the real vote does. Before the
+  review fix these read the shuffled policy. expD runs franchise off and does not record the
+  gap; this matters only if someone combines them.
+- **The shuffle and terms.** Under the shuffle a village's own constitution keeps its term,
+  but what it *enacts* is re-drawn every tick, so a termed run under the shuffle has no
+  persistent enacted policy. expD runs T = 1, so this does not arise there.
+- **Population-sample timing.** `syndromeSampleTicks` must be a multiple of
+  `reportingPeriod`: samples are taken only at record ticks, so any other value silently
+  samples less often. expD uses 5 000 with period 100.
+- **Tracer values depend on which tracer-stream users are on.** `extraTracers`,
+  `linkedTracers` and `recordSyndrome` (lineage parent picks) all draw from the one tracer RNG
+  stream. Toggling any of them changes the *values* of the inert tracers, never the dynamics
+  or any real gene (checked). Compare tracer values only between runs with the same three
+  settings. Within expD all three are on in every arm.
+- **Where tracer medians live.** SPECS S4.2 put ω and ω1…ω5 in `villageRecords.g`. They are
+  in `villageRecords[s][i].sy.w` (village medians of [ω, ω1..ω5], at syndrome records) and in
+  `data.tracers` (per-sample agent mean, mean and SD of village medians). `g` stays the six
+  enacted policy genes. `sy.w` exists only with `recordSyndrome` on, which it is in every expD
+  arm.
+- **Duplicate saves.** `db.js` `save()` checks then upserts, so it is not atomic. Since the
+  review, the coordinator never re-dispatches a running seed (heartbeats register it) and
+  counts each seed and run name once, so a rare duplicate cannot inflate a cell's count. Making
+  `save()` atomic belongs in the scaffold `db.js`.

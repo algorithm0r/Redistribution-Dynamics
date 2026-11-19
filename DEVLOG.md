@@ -2,6 +2,46 @@
 
 Newest entries at the top.
 
+## 2026-11-18 — review fixes (independent review of a165835..cc458f1)
+
+**Done:** The review verified the main claims: regress identical, diagnostics change no
+dynamics, flows conserve exactly, and the shuffle never enacts a village's own policy. Five
+fixes, one commit each:
+1. `37ed0d7` The coordinator registers a seed from `/heartbeat`, so a restart cannot
+   re-dispatch a running seed. `/complete` and the Mongo sync count each seed / `_run` once.
+   (db.js `save()` stays check-then-upsert; the atomic fix belongs in the scaffold.)
+2. `aad166b` The coordinator refuses an expNNN missing from `<db>.experiments` or registered
+   under another collection. The 2026-11-18 entry above said it refused only on the pattern and
+   the EXPLOG heading; that was then true, and the registry check is new.
+3. `56190ed` The `/whoami` identity is `<database>/<collection>`. A scratch worker and a
+   production coordinator (or the reverse) are refused, through discovery and through a pinned
+   COORD.
+4. `fdda1e0` Under `policyShuffle`, the S1 gap (`e`, mode-B `n`) and the samples' `elig` read
+   the village's own constitution (`ownPolicy`), not the shuffled one.
+5. This commit:
+   - pre-registration draft: the steward's five decisions, and a semantics/caveats section
+     (shuffle × gap, shuffle × terms, sample ticks a multiple of `reportingPeriod`, tracer
+     values shared across tracer-stream users, tracer medians in `sy.w`/`data.tracers`, not
+     `villageRecords.g`);
+   - `grid-specs.mjs --misfit-own [N]` gives that arm its own reps (default 10; my number);
+   - CLAUDE.md: the identity is db/collection.
+
+**Changed:** sweep/{coordinator,worker,launch,grid-specs}.mjs, world.js, switchsmoke.mjs,
+notes/preregistration-draft.md, CLAUDE.md.
+
+**State:**
+- Scratch test of 1–3:
+  - production worker refused by a scratch coordinator, both by discovery and pinned;
+  - unregistered expNNN refused;
+  - a heartbeat-only seed 1 made the next claim seed 2;
+  - seed 1 completed twice counted once;
+  - scratch DB dropped.
+- Fix 4: new switchsmoke check. The shuffled own-vote gap is 0.027 against an enacted–own
+  distance of 0.094. The pre-fix code gave 0.087, so the check fails on it.
+- After all five: `regress.mjs` IDENTICAL; `switchsmoke.mjs all` ALL PASS (174 s); `worldsmoke` PASS ×3.
+
+**Next:** The steward moves the draft into EXPLOG and registers expA–expD.
+
 ## 2026-11-18 — reimplementer: seeded RNG, S1–S5 instrumentation and controls, expNNN protocol, ports fix
 
 **Done:** Built `analysis/SPECS.md` S1–S5 and the reproducibility upgrades, one commit per
