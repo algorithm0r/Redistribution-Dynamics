@@ -1,21 +1,35 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-11-18 evening (steward; reimplementer code landed)
+Updated: 2026-11-18 night (steward; paper runs launched)
 Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close).
 The reimplementer's diff `a165835..cc458f1` had an independent code review on 2026-11-18. It
 found no data-corrupting bug and verified all four claims; its five plumbing fixes are in
 `37ed0d7..0020a62`.
 
 Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release.
-Drift since reads as `v0.1.0-N-g<sha>`. HEAD now `0020a62`. The reimplementer commits change
+Drift since reads as `v0.1.0-N-g<sha>`. The paper runs are stamped `v0.1.0-35-g29098b6` (clean). The reimplementer commits change
 sim code (instrumentation and controls, every one behind a switch defaulting off).
 
 ## Stage
 **Manuscript under a steward.** The lead is now the policy–cooperation syndrome; see
 `../paper/STORY.md`, the source of truth for the story. The constitutional result is
-secondary. Instrumentation and controls for the next experiments are built, reviewed and
-smoke-tested. **The paper runs (expA–expD, ~140 CPU-h; draft in
-`notes/preregistration-draft.md`) are not started and wait on Chris's timing.**
+secondary. **The paper runs are running** (Chris approved 2026-11-18, through cpuslot), pre-registered
+in `EXPLOG.md` as exp001–exp004, ≈141 CPU-h ±30% in total, so expect a day or more of wall time
+as cpuslot shares the pool:
+
+| exp | collection | runs | coordinator port |
+|---|---|---|---|
+| exp001 | `exp001_syndrome-controls` (S4/S5, first in queue) | 700 fixed | 8248 |
+| exp002 | `exp002_term-ladder` (S1) | 800 fixed | 8460 |
+| exp003 | `exp003_franchise-fixed-t` (S2) | adaptive, ≤3240 | 8672 |
+| exp004 | `exp004_long-200k` (S3) | 450 fixed | 8384 |
+
+Coordinators run detached (logs `sweep/logs/coord/`); each one's live dashboard is at its port.
+Pool: http://localhost:8000/cpu/. If a coordinator dies (reboot), restart it with
+`node coordinator.mjs grids/<collection>.json` from `sweep/` (it resumes from Mongo), then
+`node launch.mjs <collection>` re-queues what is missing. When a sweep is done:
+`node experiment.mjs finish expNNN`. **While they run, do not change sim code here.** Doc commits are fine (runs then
+stamp a later sha); uncommitted edits in this tree stamp runs `dirty: true`, so commit promptly.
 
 ## State
 - **Builds/runs.** With every new switch off, `regress.mjs` is IDENTICAL to the fixed-seed
@@ -45,7 +59,7 @@ smoke-tested. **The paper runs (expA–expD, ~140 CPU-h; draft in
 
 ## Branches
 `main` (only). Remote `origin` = github.com/algorithm0r/Redistribution-Dynamics. In sync with
-origin through `809cdfd` (pushed 2026-11-18).
+origin (pushed 2026-11-18).
 
 ## Open
 - Browser UI inputs for `signedThreshold`/`constitutionTerm`/`term` not added (defaults hold;
