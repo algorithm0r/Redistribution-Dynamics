@@ -12,7 +12,8 @@
 // any other, so a port collision can no longer file runs into the wrong collection.
 //
 // Data protocol (conventions §4): the collection must be an expNNN_slug registered with
-// db.js v2 (sweep/experiment.mjs new), and its pre-registration heading `## expNNN` must be in
+// db.js v2 (sweep/experiment.mjs new; checked against the `experiments` registry at startup),
+// and its pre-registration heading `## expNNN` must be in
 // ../EXPLOG.md, or the coordinator refuses to start. --scratch (smoke tests) uses
 // redistribution_dynamics_scratch and skips the EXPLOG check. LEGACY=1 allows resuming an old
 // named collection (balance_grid, constitution_grid).
@@ -232,6 +233,18 @@ tick();setInterval(tick,3000);
 </script>`;
 
 try { if (!fs.existsSync(DASH)) fs.writeFileSync(DASH, PAGE); } catch {}   // seed the editable dashboard file once; thereafter edit dashboard.html directly (no restart)
+
+// The registry gate: an expNNN must be registered (db.js v2 `experiments` collection, in this
+// coordinator's database) under exactly this collection, as worker.mjs also checks.
+if (LABEL) {
+    const s = await mongoSocket();
+    if (!s) { console.error(`coordinator: cannot reach Mongo (${MONGO_IP}) to check the experiments registry; refusing`); process.exit(2); }
+    let reg = null;
+    try { const ack = await emitAck(s, 'find', { db: MONGO_DB, collection: 'experiments', query: { label: LABEL }, limit: 1 }, 30000); reg = ack && ack.results && ack.results[0]; }
+    catch (e) { console.error(`coordinator: registry lookup failed (${e.message}); refusing`); process.exit(2); }
+    if (!reg) { console.error(`coordinator: ${LABEL} is not in ${MONGO_DB}.experiments. Register it (node experiment.mjs new <slug> "<question>"${SCRATCH ? ' --scratch' : ''}).`); process.exit(2); }
+    if (reg.collection !== COLLECTION) { console.error(`coordinator: ${LABEL} is registered as ${reg.collection}, not ${COLLECTION}; refusing`); process.exit(2); }
+}
 
 await syncFromMongo('resume');   // seed from Mongo before accepting claims (restart-safe)
 const startTs = Date.now();
