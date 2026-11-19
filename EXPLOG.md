@@ -23,6 +23,39 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## 2026-11-18 (night, later) — CORRECTION: villages turn over fast; "no extinction" withdrawn
+
+Prompted by the reimplementer's count (`notes/preregistration-draft.md`, Decisions §1).
+Checked against the code at the sweep commits (`applyCatastrophes`) and the stored parameters
+(catastropheChance 0.001 in both sweeps).
+
+1. A village on a full grid is wiped at 0.004 per tick, a life of about 250 ticks. About 33% of
+   villages are wiped between two 100-tick records. Migrants re-found the cell within about a
+   tick, so cells are almost never empty at a record.
+   - The raw line "Villages gone 2 000 ticks later: 0.04% / 0.05% / 0.06%" in the syndrome-tests
+     block below counts *cells*, not villages.
+   - Item 6 of that entry's conclusions ("Villages never go extinct") is wrong.
+2. Existing `villageRecords` cannot reliably show wipes (`../analysis/scripts/wipes_check.mjs`,
+   397 pulled reps):
+   - expected share of record pairs with a wipe: 0.330
+   - next record empty: ≤ 0.0005
+   - next size below half: 0.062–0.087
+   - next size ≤ 5: 0.002–0.023
+   - a cell with ≤ 5 members holds a median 18–27 members 100 ticks later
+
+   At least about three quarters of wipes leave no size signature.
+3. Withdrawn or re-read:
+   - The V4 selection gradients on "village size 500 ticks later" are withdrawn as village
+     fitness: the occupant is a successor village with probability ≈ 0.86.
+   - The survival-fitness reading is withdrawn.
+   - V3/V3b are re-read as *cell* histories.
+4. Unaffected, because none treats a cell as one village over time: Tests 1, 2, 3 and 5;
+   agent-level correlations; the population-level assembly order; the drift test; and V1–V2
+   cross-sections.
+5. Group selection very likely runs through wipe-and-recolonise. The wipe is composition-blind,
+   so the selective step is which neighbours' migrants refill the cell. Measuring it needs the
+   village ids and ended-village records now in `recordSyndrome`.
+
 ## 2026-11-18 (night) — CONCLUSIONS: drift after the transition (Chris's hypothesis)
 
 Written after the raw block below. Details: `../analysis/FINDINGS.md`, "After the transition".
