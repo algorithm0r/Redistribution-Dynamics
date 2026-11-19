@@ -2,6 +2,107 @@
 
 Newest entries at the top.
 
+## 2026-11-18 — reimplementer: seeded RNG, S1–S5 instrumentation and controls, expNNN protocol, ports fix
+
+**Done:** Built `analysis/SPECS.md` S1–S5 and the reproducibility upgrades, one commit per
+step. Every new behaviour sits behind a `PARAMETERS` switch whose default keeps the old output.
+1. `32e5cb0` **Seedable RNG.**
+   - Every sim draw goes through `rand()` (util.js). `PARAMETERS.seed` null keeps
+     `Math.random()`; a seed gives sfc32 streams: sim, tracer and diag. Tracers and
+     diagnostics draw from their own streams, so they cannot perturb a run.
+   - `regress.mjs` + `regress.baseline.json` hash every packet key of 11 scenarios (Model 1 and
+     V; off/A/B, signed, fixed and voted term, pSexual, individual births, wealth bias) plus
+     `SEED=… worldsmoke/smoketest` stdout.
+   - Twice-run identical (nothing volatile); a perturbed run (`mutationStdev` 0.0201) differs
+     in every key; unseeded runs differ.
+2. `da196ca` **fix `villageVals`.** It changes output by design: only
+   `geneVillageMeans.omega/.term` (null → values) and their village histograms (all-zero →
+   counts). Every other key and sub-key is identical (checked per gene). Baseline re-captured
+   here.
+3. `69d60af` **S1 `recordPolicyGap`** → `data.policyGap`.
+   - Pop-weighted |e−f|, |e−n|, |n−f|, rank-gap RMS, T and election age, for τ θ φ κ λ ψ term.
+   - Smoke: off T=1 |e−f| ≤ 0.048 over τθφκλ at every sample (≈0.008 late), franchise part
+     exactly 0, age 0. T=500: lag appears (φ 0.064), T = 500, age ≤ 499. A/B: franchise part
+     up to 0.25.
+4. `3cd2bf3` **S2 `termVoted`** (default true). Smoke: A/B at T 1 and 100 hold T fixed,
+   age ≤ T−1, franchise part > 0.
+5. `6130c36` **S4 `recordSyndrome`** + **`extraTracers`** (k inert ω1..ωk).
+   - Per-village flows: births group/individual, deaths starve/background, migrants by
+     vector, gene sums.
+   - Member gene sums, village ids, lineage (mode, Simpson, count), tracer medians.
+   - Population samples with paid/withheld/sanctioned/received/voted/eligible flags.
+   - Smoke: n and gene sums conserved exactly through the flows (error ~1e-10). Every emigrant
+     is an immigrant, per vector. Paid share of asked agents ≈ their coop. Switch on leaves
+     every existing key identical.
+   - I added `elig` (in the electorate a vote now would use) beside `voted` (at the sitting
+     election): under a voted term almost every sampled agent post-dates its election.
+6. `d67a6f1` **S5 `policyShuffle`** + `policyShuffleMisfit` (enacted|own), and
+   **`linkedTracers`**.
+   - `Village.step` split into stepVote + stepEconomy (byte-identical when off).
+   - Shuffle smoke: corr(enacted, own) |r| ≤ 0.07 for τθφκλ; 99% of enacted policies are
+     another village's own vote.
+   - Linked pair: asexual |corr(coop, ωL)| 0.33 vs ωU 0.015; pSexual 1: 0.054 vs 0.016.
+7. `a1f7ca8` **expNNN data protocol + ports fix (Backlog).**
+   - Vendored `db.js` v2 and `sweep/ports.mjs` (byte-identical to the scaffold).
+   - Coordinator: derived port + `/whoami` (identity = collection). Refuses a non-expNNN
+     collection (LEGACY=1 resumes old sweeps) and an expNNN without its `## expNNN` EXPLOG
+     heading. Per-cell seeds; fixed-rep cells.
+   - Worker: finds the coordinator by identity and refuses any other; seeded runs stamped with
+     `PARAMETERS.id`, saved via `run.save`. `--once` for cpuslot.
+   - `launch.mjs` queues one-shot workers under tag `redistribution-dynamics` (`--direct N`
+     for mint). `experiment.mjs` is the registry.
+   - Scratch smoke: 5 refusal paths refuse. 9 runs saved; exactly the fixed reps ran under
+     8-way contention, after a dispatch fix found here. Saved runs re-run byte-identical from
+     their stored `_parameters`. Scratch DB dropped.
+8. `0c7af5d` **Packet size.** `recordVillageRecords` / `villageRecordEvery`; ended villages
+   compacted. Conservation re-checked, with a known-bad mode that fails.
+
+**Changed:** util.js, agent.js, village.js, world.js, population.js, parameters.js,
+migstats.js, worldsmoke.js, smoketest.js, sweep/{headless,worker,coordinator,launch}.mjs. New:
+regress.mjs (+baseline), switchsmoke.mjs, db.js, sweep/{ports,experiment,packetsize,grid-specs}.mjs,
+notes/preregistration-draft.md. Docs: CLAUDE.md (map; Ports marked applied), sweep/README.md
+(run section), .gitignore (results/, sweep/logs/).
+
+**State:**
+- `node regress.mjs` IDENTICAL @ `v0.1.0-26-g0c7af5d` (step-2 baseline).
+- `node switchsmoke.mjs all` ALL PASS (170 s).
+- `worldsmoke` PASS ×3.
+- Throughput unchanged within noise (unseeded old vs new, 6 000 ticks).
+
+Packet sizes, BSON at 50 000 ticks (`sweep/packetsize.mjs`, seed 1, via cpuslot):
+
+| config | MB |
+|---|---|
+| default | 10.24 (villageRecords 6.0, geneCoopHistograms 2.1) |
+| policyGap / linked / termVoted-off | +0.06 to +0.18 |
+| shuffle | 13.8 |
+| syndrome, first build | 26.9 |
+| all switches, first build | 31.5 |
+| village records every 5th | 5.44 |
+| + policyGap, records every 5th | 5.61 |
+| S4/S5 baseline at 1 000-tick windows | 10.7 |
+| S4/S5 shuffle at 1 000-tick windows | 12.4 |
+| S4/S5 shuffle at 500-tick windows | 16.3 (over the limit) |
+| 200k ticks, period 400 | 10.24 |
+
+Timings for the CPU estimates are in the pre-registration draft.
+
+**Finding (spec premise): villages turn over every ~250 ticks.**
+- At the default `catastropheChance` 0.001 per populated neighbour, a full grid loses 0.40
+  villages per tick to catastrophe: 4 033 in 10 000 ticks, mean 28.6 members, counted directly.
+- The cell is re-founded by migrants the next tick (median 1).
+- So SPECS S4 / STORY's "villages essentially never go extinct (0.05%)" describes cells, not
+  villages.
+
+**Next:** The steward reviews `notes/preregistration-draft.md`: ≈140 CPU-h; five decisions,
+the first being S4's window length given that turnover. Then register (`experiment.mjs new`),
+generate grids (`grid-specs.mjs`), EXPLOG headings, coordinator + `launch.mjs`.
+
+Not done:
+- runner.js (legacy vm batch runner) still writes around db.js.
+- The fig server still binds :8091 (it only reads).
+- The coordinator's dashboard facets lay out only balance_grid ids.
+
 ## 2026-11-18 — doc-staleness pass (docs only)
 
 **Done:** Checked every doc against the code and git. Stale and fixed: top-level README
