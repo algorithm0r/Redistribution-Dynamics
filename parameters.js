@@ -72,6 +72,10 @@ const PARAMETERS = {
     // [1, termMax]. See DEVPLAN 'Constitutions'.
     constitutionTerm: 1,
     termMax: 50000,          // the voted term gene [0,1] maps linearly to [1, termMax] ticks
+    // Whether franchise modes 'A'/'B' VOTE the term (true, the original behaviour) or use the
+    // fixed constitutionTerm like 'off' (false). false separates the franchise from the voted
+    // term, which constitution_grid confounded (analysis/SPECS.md S2).
+    termVoted: true,
 
     // Evolution: when on, a starving agent dies and is replaced by a mutated
     // offspring of a survivor, so pNoGather/pNoConsume evolve under selection.

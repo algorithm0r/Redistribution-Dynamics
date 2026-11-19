@@ -65,6 +65,22 @@ const SMOKES = {
             check(pg.termTicks.at(-1)[1] > 1000, `franchise ${fr}: voted T is large (mean ${f3(pg.termTicks.at(-1)[1])} ticks)`);
         }
     },
+
+    async termVoted() {
+        console.log('\n== S2 termVoted ==');
+        const cfg = { ...V, epoch: 3000, recordPolicyGap: true };
+        for (const fr of ['A', 'B']) for (const T of [1, 100]) {
+            const p = await quiet({ ...cfg, franchiseMode: fr, termVoted: false, constitutionTerm: T }), pg = p.data.policyGap;
+            const Ts = new Set(pg.termTicks.map(r => r[0])), maxAge = Math.max(...pg.electionAge.map(r => r[1]));
+            const frMax = Math.max(...pg.absFranchise.map(r => Math.max(...r.slice(0, 5))));
+            console.log(`  ${fr} termVoted=false T=${T}: T values seen {${[...Ts].join(',')}} | max mean age ${f3(maxAge)} | max franchise |n-f| ${f3(frMax)}`);
+            check(Ts.size === 1 && Ts.has(T), `${fr}: T fixed at constitutionTerm ${T} in every sample`);
+            check(maxAge <= T - 1, `${fr}: election age never exceeds T-1 = ${T - 1}`);
+            check(frMax > 0, `${fr}: the franchise still acts (franchise part > 0)`);
+        }
+        const v = await quiet({ ...cfg, franchiseMode: 'A' });   // default termVoted: true
+        check(v.data.policyGap.termTicks.at(-1)[1] > 1000, `A with termVoted default (true): T still voted (mean ${f3(v.data.policyGap.termTicks.at(-1)[1])})`);
+    },
 };
 
 const which = process.argv[2] || 'all';

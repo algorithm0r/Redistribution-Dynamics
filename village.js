@@ -137,10 +137,11 @@ function genePolicy(agents, prevPolicy) {
     };
 }
 
-/** The constitution term T (ticks) for a village. Under franchiseMode 'off' it's the fixed
+/** The constitution term T (ticks) for a village. Under franchiseMode 'off', or with
+ *  PARAMETERS.termVoted false (S2: franchise without a voted term), it's the fixed
  *  PARAMETERS.constitutionTerm; otherwise the voted term gene mapped [0,1] -> [1, termMax]. */
 function electedTerm(policy) {
-    if (PARAMETERS.franchiseMode === 'off') return Math.max(1, PARAMETERS.constitutionTerm);
+    if (!PARAMETERS.termVoted || PARAMETERS.franchiseMode === 'off') return Math.max(1, PARAMETERS.constitutionTerm);
     const g = policy && Number.isFinite(policy.term) ? policy.term : 0.5;
     return Math.max(1, Math.round(1 + g * (PARAMETERS.termMax - 1)));
 }
