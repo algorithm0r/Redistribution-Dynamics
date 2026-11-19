@@ -23,6 +23,101 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## Paper runs exp001–exp004 — PRE-REGISTERED 2026-11-18 (steward), before any run
+
+Chris approved the paper runs on 2026-11-18 ("as long as you use the CPU slot app you can
+go"). The four blocks below are the reimplementer's draft (`notes/preregistration-draft.md`,
+which holds the CPU probes, the steward's five decisions and the review caveats in full),
+moved here before launch. Specs: `../analysis/SPECS.md`. Grids: `node sweep/grid-specs.mjs
+<design> <collection>` → `sweep/grids/<collection>.json`.
+
+**Common to all.** Code: sim `main`, code as of `4a8b2d4` (the commit adding this block changes only docs and grids); each document's `PARAMETERS.id` records the exact commit and dirty flag. Model V, `regime: 'genome'`,
+`randomizeGenes: true`, 10×10 torus, `seedVillages` 10, `seedPop` 30, `cap` 100,
+`birthThreshold` 0, migration random 0.02 / misfit 0.2 / starve 0.2, `reportingPeriod` 100,
+`epoch` 50 000 (except exp004), `catastropheChance` 0.001. Unlisted parameters at their
+`parameters.js` defaults. Constitution base (exp002–exp004): `signedThreshold: true`,
+`thresholdMode: 'percentile'`, `termMax` 50 000, `pSexual` 0. Balance base (exp001):
+`signedThreshold: false`, `thresholdMode: 'relative'`. Individual selection `base` / `i8` / `i6`
+= `individualBirthThreshold` 0 / 8 / 6, `birthWealthBias` 0; g = `birthThresholdRate`.
+Seeds 1, 2, 3 … per cell (run `<cell>_s<seed>`); seed k founds the same initial villages in
+every cell, so cells pair by seed. Every document carries `PARAMETERS.id`. Desktop runs go
+through `cpuslot` (tag `redistribution-dynamics`, one-shot workers). Establishment = final mean
+coop > 0.5, as in the retrospective blocks below.
+
+Launch order: exp001 first (cheapest; answers the cause-vs-consequence question), then exp002,
+exp003, exp004. Estimated total ≈ 141 CPU-h ± 30%.
+
+## exp001 — syndrome instrumentation and controls (S4, S5) · status: running
+
+- **Question:** Why is the λ/φ/κ package favoured: does it rise through village productivity,
+  migration or within-village selection; how extreme does a neutral gene get per cell; how much
+  is draft (linked vs unlinked tracer); and does the policy–coop association survive when
+  villages enact another village's policy (policy-shuffle shadow)?
+- **Collection:** `exp001_syndrome-controls`. **Design:** `syndrome-controls --misfit-own`.
+- **Cells (30):** {base_g2, base_g4, i6_g2, i8_g2, i8_g4} × franchise off × pSexual {0, 1} ×
+  arm {`own`; `shuffle` = `policyShuffle`, misfit migration against the enacted policy (primary
+  control); `shufown` = shuffle, misfit against the village's own vote (secondary)}. Balance base.
+- **Diagnostics:** `recordSyndrome`, `extraTracers` 5, `linkedTracers`, `syndromeEvery` 10,
+  `villageRecordEvery` 10 (1 000-tick windows; villages live ~250 ticks, so their lives are in
+  `data.syndrome.ended` / `endedSum`). Tracers and recording use their own RNG streams and leave
+  the trajectory unchanged; the shuffle arms change the run by design.
+- **Reps:** fixed, 30 per cell for `own` and `shuffle`, 10 for `shufown` (700 runs).
+- **Reading (SPECS S5, stated before any run):** if the policy–coop association and the
+  outcome divergence of FINDINGS Fig 6 survive in the `shuffle` arm, they are not selection on
+  the village's own enacted policy (the package would then be a consequence of cooperation, or
+  ride on something else). If they vanish under the shuffle while present in `own` at matched
+  seed, selection on enacted policy is doing the work. Linked tracer more extreme than unlinked
+  = draft (lowest priority; pSexual already says draft does not build the package). The flow
+  decomposition (productivity / migration / within-village) is descriptive (SPECS S4).
+- **CPU:** ≈ 11 CPU-h.
+
+## exp002 — term ladder (S1 test 2) · status: queued
+
+- **Question:** Under franchise off, does p(establish) fall along one curve of the early policy
+  gap as the term T rises, and do exp003's franchise cells at T = 1 fall on that curve at
+  matched gap?
+- **Collection:** `exp002_term-ladder`. **Design:** `term-ladder`.
+- **Cells (20):** {base_g2, i8_g1} × franchise off × T ∈ {1, 3, 10, 30, 100, 300, 1 000,
+  3 000, 10 000, 50 000}. Constitution base.
+- **Diagnostics:** `recordPolicyGap`, `villageRecordEvery` 5.
+- **Reps:** fixed, 40 per cell (800 runs).
+- **Reading (SPECS S1):** if the gap is the mechanism, the ladder and the franchise cells fall
+  on one curve; franchise cells off the curve at matched gap mean something besides the gap acts.
+- **CPU:** ≈ 19 CPU-h.
+
+## exp003 — franchise without a voted term (S2; feeds S1 test 1) · status: queued
+
+- **Question:** With the term fixed rather than voted, does restricting the franchise (A/B)
+  lower p(establish) relative to franchise off at the same T, and does the franchise interact
+  with a long lock?
+- **Collection:** `exp003_franchise-fixed-t`. **Design:** `franchise-fixedT`.
+- **Cells (54):** individual {base, i8, i6} × g {1, 2, 3} × franchise {A, B} × T {1, 100,
+  50 000}, `termVoted: false`, `constitutionTerm` T. Pairs cell for cell with
+  constitution_grid's `foff_T1/T100/T50k`. Constitution base.
+- **Diagnostics:** `recordPolicyGap`, `villageRecordEvery` 5.
+- **Reps:** adaptive (`stats.mjs`: minN 5, maxN 60, coop CI ±0.03, p ±0.10).
+- **Reading (SPECS S2):** A/B vs off at T = 1 isolates the franchise; A/B vs off at
+  T = 50 000 says whether franchise and lock interact. If A/B at T = 1 match off at T = 1, the
+  constitution_grid deficit was the voted term's lock, not the franchise. (balance_grid's
+  franchise deficit, 1/433 and 0/408, was under the one-sided gate; this grid is signed.)
+- **CPU:** ≈ 58 CPU-h (bounds 7–90).
+
+## exp004 — long runs (S3: censoring) · status: queued
+
+- **Question:** Do the franchise/term levels differ in whether cooperation establishes
+  (plateau of the time-to-establishment curve), or only in how fast?
+- **Collection:** `exp004_long-200k`. **Design:** `long`.
+- **Cells (15):** individual {base, i8, i6} × g 1 × {off@T1, off@T100, off@T50k, A, B}; A/B
+  vote their term as in constitution_grid. Constitution base.
+- **Run length:** `epoch` 200 000, `reportingPeriod` 400 (same 501 samples).
+- **Diagnostics:** `recordPolicyGap`, `villageRecordEvery` 5.
+- **Reps:** fixed, 30 per cell (450 runs).
+- **Prediction:** none committed; the 50k censoring (median establishment T1 20.7k vs ~39k for
+  the slow levels) leaves both readings open.
+- **CPU:** ≈ 52 CPU-h (upper estimate).
+
+---
+
 ## 2026-11-18 (night, later) — CORRECTION: villages turn over fast; "no extinction" withdrawn
 
 Prompted by the reimplementer's count (`notes/preregistration-draft.md`, Decisions §1).
