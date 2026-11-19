@@ -27,6 +27,7 @@ const GENE_SHORT = {
  */
 class World {
     constructor() {
+        seedRNG(PARAMETERS.seed);   // start of a run: (re)seed every RNG stream (null = Math.random)
         this.rows = PARAMETERS.gridRows;
         this.cols = PARAMETERS.gridCols;
         this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(null));
@@ -116,7 +117,7 @@ class World {
             for (let c = 0; c < this.cols; c++) {
                 if (!this.grid[r][c]) continue;
                 const crowd = this.neighbors(r, c).reduce((n, [nr, nc]) => n + (this.grid[nr][nc] ? 1 : 0), 0);
-                if (crowd > 0 && Math.random() < p * crowd) victims.push([r, c]);
+                if (crowd > 0 && rand() < p * crowd) victims.push([r, c]);
             }
         for (const [r, c] of victims) this.grid[r][c] = null;
     }
@@ -139,7 +140,7 @@ class World {
             if (v.growthPoints < th) break;
             const fed = v.agents.filter(a => !a.starved);
             if (fed.length === 0) break;    // only needs-met villagers may parent; bank the points
-            if (Math.random() >= birthProb(v.pop)) break;   // soft cap: no birth, keep the points
+            if (rand() >= birthProb(v.pop)) break;   // soft cap: no birth, keep the points
             v.growthPoints -= th;
             const parent = pickByStock(fed);   // ∝ stock^birthWealthBias (β=0 → uniform)
             v.agents.push(reproduce(parent, fed));   // sexual (recombine w/ a fed mate) w.p. pSexual, else clone
@@ -207,18 +208,18 @@ class World {
 
     /** Resolve an agent's migration to one destination cell (priority starve > misfit > random). */
     migrationDest(v, a) {
-        if (a.starved && Math.random() < PARAMETERS.pMigrateStarve) {
+        if (a.starved && rand() < PARAMETERS.pMigrateStarve) {
             this.tallyMigration('starve');
             return this.bestFoodNeighbor(v) || this.randomNeighbor(v);
         }
         if (PARAMETERS.pMigrateMisfit > 0) {
             const mismatch = policyDistance(a, v.cachedPolicy);
-            if (Math.random() < PARAMETERS.pMigrateMisfit * mismatch) {
+            if (rand() < PARAMETERS.pMigrateMisfit * mismatch) {
                 this.tallyMigration('misfit');
                 return this.bestFitNeighbor(v, a);
             }
         }
-        if (Math.random() < PARAMETERS.pMigrateRandom) {
+        if (rand() < PARAMETERS.pMigrateRandom) {
             this.tallyMigration('random');
             return this.randomNeighbor(v);
         }

@@ -163,8 +163,8 @@ function applyGenomePolicy(agents, policy) {
     for (const a of payers) {
         const due = Math.min(a.stock, stochasticRound(tau * a.stock));
         if (due <= 0) continue;
-        if (Math.random() < a.coop) { a.stock -= due; pot += due; }
-        else if (Math.random() < lambda) { a.stock -= due; }
+        if (rand() < a.coop) { a.stock -= due; pot += due; }
+        else if (rand() < lambda) { a.stock -= due; }
     }
     if (pot <= 0) return;
 
@@ -227,7 +227,7 @@ function pickByStock(agents, beta) {
     let total = 0;
     for (const a of agents) total += Math.pow(a.stock, b);
     if (total <= 0) return agents[randomInt(agents.length)];
-    let r = Math.random() * total;
+    let r = rand() * total;
     for (const a of agents) { r -= Math.pow(a.stock, b); if (r < 0) return a; }
     return agents[agents.length - 1];
 }
@@ -315,7 +315,7 @@ class Village {
         const parents = this.agents.filter(a => a.stock >= th);   // snapshot: newborns don't breed this tick
         for (const a of parents) {
             // Soft cap: breed with prob birthProb(pop); on failure keep the stock (bank it).
-            if (Math.random() >= birthProb(this.agents.length)) continue;
+            if (rand() >= birthProb(this.agents.length)) continue;
             a.stock -= th;
             this.agents.push(a.spawnChild());
         }
@@ -326,7 +326,7 @@ class Village {
         const sd = PARAMETERS.starveDeathChance;
         const bd = PARAMETERS.deathChance;
         this.agents = this.agents.filter(a =>
-            !((a.starved && Math.random() < sd) || Math.random() < bd));
+            !((a.starved && rand() < sd) || rand() < bd));
     }
 }
 

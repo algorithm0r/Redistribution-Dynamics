@@ -1,6 +1,7 @@
 // Headless smoke test for Model V (no MongoDB, no canvas). Loads the sim files
 // in a VM context and runs the World grid for a few scenarios, printing the
 // population / village / gene trajectories. Run: node worldsmoke.js
+// SEED=<n> node worldsmoke.js seeds every scenario, so its output is reproducible byte for byte.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,7 @@ for (const s of scenarios) {
         gridRows: 6, gridCols: 6, cap: 40, birthThreshold: 20, seedVillages: 4, seedPop: 15,
         initialStock: 5, pNoGather: 0.10, pNoConsume: 0.11,   // thin buffer, ~1% net positive
     }, s.genes, s.extra || {});
+    if (process.env.SEED) P.seed = process.env.SEED;   // reproducible run (util.js seedRNG); unset = Math.random
 
     let captured = null;
     ctx.socket.emit = (e, pkt) => { if (e === 'insert') captured = pkt; };

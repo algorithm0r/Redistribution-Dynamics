@@ -6,6 +6,7 @@
  */
 class Population {
     constructor() {
+        seedRNG(PARAMETERS.seed);   // start of a run: (re)seed every RNG stream (null = Math.random)
         this.agents = [];
         for (let i = 0; i < PARAMETERS.initialAgents; i++) {
             this.agents.push(new Agent());
@@ -37,7 +38,7 @@ class Population {
     replaceDead() {
         const deathChance = PARAMETERS.deathChance;
         const dying = this.agents.map(a =>
-            a.starved || (deathChance > 0 && Math.random() < deathChance));
+            a.starved || (deathChance > 0 && rand() < deathChance));
 
         const survivors = this.agents.filter((a, i) => !dying[i]);
         if (survivors.length === 0) return;
@@ -94,7 +95,7 @@ class Population {
             if (donors.length === 0) break;
             const donor = donors[randomInt(donors.length)];
             donor.stock -= 1;
-            if (Math.random() >= PARAMETERS.conflictChance) n.stock += 1;
+            if (rand() >= PARAMETERS.conflictChance) n.stock += 1;
             // else: resource lost to conflict
         }
     }

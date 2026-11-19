@@ -50,21 +50,21 @@ class Agent {
 
     /** Replace the social genome with uniform-random values (founder diversity). */
     randomizeGenome() {
-        this.tau = Math.random();
-        this.theta = Math.random();
-        this.phi = Math.random();
-        this.kappa = Math.random();
-        this.lambda = Math.random();
-        this.psi = Math.random();
-        this.coop = Math.random();
-        this.omega = Math.random();
-        this.term = Math.random();
+        this.tau = rand();
+        this.theta = rand();
+        this.phi = rand();
+        this.kappa = rand();
+        this.lambda = rand();
+        this.psi = rand();
+        this.coop = rand();
+        this.omega = rand();
+        this.term = rand();
     }
 
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
     gather() {
         this.starved = false;
-        if (Math.random() >= this.pNoGather) this.stock += 1;
+        if (rand() >= this.pNoGather) this.stock += 1;
     }
 
     /**
@@ -73,7 +73,7 @@ class Agent {
      * under evolution that hunger is fatal (flagged via `starved`).
      */
     consume() {
-        if (Math.random() < this.pNoConsume) return;   // no need this tick
+        if (rand() < this.pNoConsume) return;   // no need this tick
         if (this.stock > 0) this.stock -= 1;
         else { this.hungerCount += 1; this.starved = true; }
     }
@@ -117,9 +117,9 @@ class Agent {
     breedWith(mate) {
         const child = new Agent();
         const m = () => generateNormalSample(0, PARAMETERS.mutationStdev);
-        const from = key => (Math.random() < 0.5 ? this : mate)[key];   // independent per gene
+        const from = key => (rand() < 0.5 ? this : mate)[key];   // independent per gene
 
-        const boonParent = Math.random() < 0.5 ? this : mate;   // keep boon/bane together
+        const boonParent = rand() < 0.5 ? this : mate;   // keep boon/bane together
         child.pNoGather = boonParent.pNoGather;                  // frozen
         child.pNoConsume = boonParent.pNoConsume;                // frozen
 
@@ -147,7 +147,7 @@ class Agent {
  * asexual by nature and don't route through here. Free function: it uses no `this`.
  */
 function reproduce(parent, pool) {
-    if (PARAMETERS.pSexual > 0 && pool && pool.length > 1 && Math.random() < PARAMETERS.pSexual) {
+    if (PARAMETERS.pSexual > 0 && pool && pool.length > 1 && rand() < PARAMETERS.pSexual) {
         let mate = parent;
         for (let i = 0; i < 8 && mate === parent; i++) mate = pool[randomInt(pool.length)];
         if (mate !== parent) return parent.breedWith(mate);

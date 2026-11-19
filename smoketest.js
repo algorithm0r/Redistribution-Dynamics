@@ -1,6 +1,7 @@
 // Headless smoke test (no MongoDB). Loads the sim files in a VM context like
 // runner.js, runs each regime for a short epoch, and prints summary metrics.
 // Run: node smoketest.js   (safe to delete; not part of the simulation)
+// SEED=<n> node smoketest.js seeds every scenario, so its output is reproducible byte for byte.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -45,6 +46,7 @@ for (const scenario of scenarios) {
     const ctx = createCtx();
     const P = ctx.PARAMETERS;
     Object.assign(P, { epoch: EPOCH, idCounter: 0 }, scenario);
+    if (process.env.SEED) P.seed = process.env.SEED;   // reproducible run (util.js seedRNG); unset = Math.random
 
     let captured = null;
     ctx.socket.emit = (event, packet) => { if (event === 'insert') captured = packet; };

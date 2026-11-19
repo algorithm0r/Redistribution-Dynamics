@@ -3,19 +3,96 @@
  * Nothing here is domain-specific.
  */
 
+// ── Seedable RNG ────────────────────────────────────────────────────────────
+// Every random draw in the sim goes through rand() (never Math.random() directly).
+// With PARAMETERS.seed unset (null), rand() IS Math.random() — the original, unseeded
+// behaviour, same call sequence. With a seed, rand() draws from sfc32 (Chris Doty-
+// Humphrey's Small Fast Counter, 128-bit state, period ≥ 2^32 per cycle and ~2^127
+// typical — mulberry32's 2^32 period is too short for a run that draws billions), so a
+// run is reproducible from its stored PARAMETERS. seedRNG() is called once per run, at
+// the top of the World / Population constructors.
+//
+// Separate STREAMS keep instrumentation from perturbing the trajectory:
+//   'sim'    — the model (rand). Changing anything that draws from it changes the run.
+//   'tracer' — inert tracers ω1..ωk, the linked/unlinked pair, lineage parent picks
+//              (tracerRand). Turning tracers on leaves the real genes' trajectory intact.
+//   'diag'   — diagnostic sampling, e.g. periodic population samples (diagRand).
+// The tracer/diag streams are created lazily on first use, so a run that never uses them
+// draws nothing extra. Unseeded, they are seeded once from Math.random().
+
+/** FNV-1a over a string -> uint32. Seeds may be numbers or strings. */
+function _fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+}
+
+/** sfc32 generator seeded from (seed, stream) via splitmix32; returns () -> [0, 1). */
+function makeRNG(seed, stream) {
+    let s = _fnv1a(String(seed) + '|' + (stream || 'sim'));
+    const splitmix = () => {   // splitmix32: spreads one 32-bit seed over the 128-bit state
+        s = (s + 0x9e3779b9) | 0;
+        let z = s;
+        z = Math.imul(z ^ (z >>> 16), 0x85ebca6b);
+        z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35);
+        return (z ^ (z >>> 16)) >>> 0;
+    };
+    let a = splitmix(), b = splitmix(), c = splitmix(), d = splitmix();
+    const next = () => {
+        const t = (((a + b) | 0) + d) | 0;
+        d = (d + 1) | 0;
+        a = b ^ (b >>> 9);
+        b = (c + (c << 3)) | 0;
+        c = (c << 21) | (c >>> 11);
+        c = (c + t) | 0;
+        return (t >>> 0) / 4294967296;
+    };
+    for (let i = 0; i < 15; i++) next();   // warm up past the seeding correlations
+    return next;
+}
+
+let _rngSeed = null;     // the seed of the current run (null = unseeded)
+let _rngSim = null;      // null -> Math.random
+let _rngTracer = null;   // lazily created
+let _rngDiag = null;     // lazily created
+
+/** (Re)seed every stream for a new run. seed null/undefined/'' -> unseeded (Math.random). */
+function seedRNG(seed) {
+    _rngSeed = (seed === undefined || seed === null || seed === '') ? null : seed;
+    _rngSim = _rngSeed === null ? null : makeRNG(_rngSeed, 'sim');
+    _rngTracer = null;
+    _rngDiag = null;
+}
+
+/** The sim stream: uniform [0, 1). Math.random() when unseeded. */
+function rand() { return _rngSim === null ? Math.random() : _rngSim(); }
+
+/** The tracer stream (inert genes / lineage): never touches the sim stream. */
+function tracerRand() {
+    if (_rngTracer === null) _rngTracer = makeRNG(_rngSeed === null ? Math.random() : _rngSeed, 'tracer');
+    return _rngTracer();
+}
+
+/** The diagnostic stream (sampling for records): never touches the sim stream. */
+function diagRand() {
+    if (_rngDiag === null) _rngDiag = makeRNG(_rngSeed === null ? Math.random() : _rngSeed, 'diag');
+    return _rngDiag();
+}
+
 /**
  * @param {Number} n
- * @returns Random integer in [0, n-1]
+ * @returns Random integer in [0, n-1] (sim stream)
  */
-const randomInt = n => Math.floor(Math.random() * n);
+const randomInt = n => Math.floor(rand() * n);
 
 /**
  * Box-Muller transform.
+ * @param r the uniform source (default: the sim stream)
  * @returns A normally-distributed sample with the given mean and std dev.
  */
-const generateNormalSample = (mean = 0, stdDev = 1) => {
-    const u1 = Math.random();
-    const u2 = Math.random();
+const generateNormalSample = (mean = 0, stdDev = 1, r = rand) => {
+    const u1 = r();
+    const u2 = r();
     const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
     return z0 * stdDev + mean;
 };
@@ -27,7 +104,7 @@ const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
  *  Keeps integer stocks while honouring continuous rates in expectation. */
 const stochasticRound = x => {
     const f = Math.floor(x);
-    return f + (Math.random() < x - f ? 1 : 0);
+    return f + (rand() < x - f ? 1 : 0);
 };
 
 /** Median of a numeric array (0 if empty). */

@@ -118,6 +118,12 @@ const PARAMETERS = {
 
     idCounter: 0,   // monotonic source of unique agent ids; reset at run start
 
+    // ── Reproducibility ────────────────────────────────────────────────────
+    // RNG seed for the run. null = unseeded: every draw is Math.random() (the original
+    // behaviour). Any number/string = every draw comes from a seeded sfc32 stream
+    // (util.js seedRNG), so the run reproduces exactly from its stored PARAMETERS.
+    seed: null,
+
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)
     reportingPeriod: 100,     // record statistics every N ticks

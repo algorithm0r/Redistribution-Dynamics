@@ -1,6 +1,6 @@
 // Headless migration instrumentation for Model V. Loads the sim files in a VM,
 // replaces World.prototype.migrationDest with a faithful counting twin (identical
-// Math.random() order, so the trajectory is byte-for-byte the production one), and
+// rand() order, so the trajectory is byte-for-byte the production one), and
 // reports how often each migration vector actually fires, where movers land
 // (empty cell = colonizing vs occupied = shuffling), and how that changes as the
 // grid saturates (early / mid / late thirds). Run: node migstats.js
@@ -46,18 +46,18 @@ function createCtx(stats) {
             var self = this;
             function grid_is_empty(d) { return !self.grid[d[0]][d[1]]; }
 
-            if (a.starved && Math.random() < P.pMigrateStarve) {
+            if (a.starved && rand() < P.pMigrateStarve) {
                 S.starveFire++;
                 return land(this.bestFoodNeighbor(v) || this.randomNeighbor(v));
             }
             if (P.pMigrateMisfit > 0) {
                 var mismatch = policyDistance(a, v.cachedPolicy);
-                if (Math.random() < P.pMigrateMisfit * mismatch) {
+                if (rand() < P.pMigrateMisfit * mismatch) {
                     S.misfitFire++;
                     return land(this.bestFitNeighbor(v, a));
                 }
             }
-            if (Math.random() < P.pMigrateRandom) {
+            if (rand() < P.pMigrateRandom) {
                 S.randomFire++;
                 return land(this.randomNeighbor(v));
             }
