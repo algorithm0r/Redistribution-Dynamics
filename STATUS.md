@@ -1,22 +1,30 @@
 # STATUS — Redistribution Dynamics
 
-Updated: 2026-11-18 (doc-staleness pass; no code touched)
-Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close)
+Updated: 2026-11-18 evening (steward; reimplementer code landed)
+Verified: never by cold `/audit` (this line moves only on a cold audit, not at session close).
+The reimplementer's diff `a165835..cc458f1` had an independent code review on 2026-11-18. It
+found no data-corrupting bug and verified all four claims; its five plumbing fixes are in
+`37ed0d7..0020a62`.
 
 Provenance stamp `<version>`: **`v0.1.0`** (commit `90a0ae0`) — first tagged release.
-Drift since reads as `v0.1.0-N-g<sha>`; HEAD before this pass was `v0.1.0-9-g5359ddd`.
-No code has changed since 2026-07-20 (`a76ab5e`); everything after is docs.
+Drift since reads as `v0.1.0-N-g<sha>`. HEAD now `0020a62`. The reimplementer commits change
+sim code (instrumentation and controls, every one behind a switch defaulting off).
 
 ## Stage
-Model V live with the full **constitutional (meta) layer**: signed θ/ψ filters (either tail)
-and **termed constitutions** with a voted **term (T)** meta-gene. Both sweeps are **complete
-and analyzed**: `balance_grid` (243 cells) and `constitution_grid` (45 cells). The science
-question for the constitutional layer is **answered** (negative result — see below); the
-project is now at a write-up / "where next" juncture, not mid-run.
+**Manuscript under a steward.** The lead is now the policy–cooperation syndrome; see
+`../paper/STORY.md`, the source of truth for the story. The constitutional result is
+secondary. Instrumentation and controls for the next experiments are built, reviewed and
+smoke-tested. **The paper runs (expA–expD, ~140 CPU-h; draft in
+`notes/preregistration-draft.md`) are not started and wait on Chris's timing.**
 
 ## State
-- **Builds/runs.** `worldsmoke` PASS ×3 (franchise-check, signed-check, constitution-check)
-  @ `v0.1.0-9-g5359ddd`, 2026-11-18 (1.5 s). Browser page not checked this pass.
+- **Builds/runs.** With every new switch off, `regress.mjs` is IDENTICAL to the fixed-seed
+  baseline (11 scenarios + seeded smoke stdout), checked by the steward @ `0020a62`.
+  `switchsmoke.mjs all` passes (reimplementer). `worldsmoke` PASS ×3. Browser page not checked.
+- **Villages turn over fast** (~0.4 catastrophe wipes per tick on a full grid, ~250-tick
+  lifespans; reimplementer's direct count). Earlier "never go extinct" statements described cells.
+- The constitutional-layer text below is from 2026-10-20 and is kept as history. The current
+  reading, including the corrections, is in STORY.md and `../analysis/FINDINGS.md`.
 - **`constitution_grid` complete + ANALYZED 2026-10-20:** 1801 reps / 45 cells (~40/cell), all
   written 2026-07-18 (confirmed in Mongo; nothing since). **Negative result:** neither signed
   θ/ψ, nor locking a constitution (term T), nor enfranchising voters (A/B) opens any new
