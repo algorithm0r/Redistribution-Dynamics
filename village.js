@@ -106,7 +106,16 @@ function medianOf(agents, key) {
     return medianInPlace(_geneBuf, n);
 }
 
-function genePolicy(agents, prevPolicy) {
+/** Median of agents[i].tr[j] (extra inert tracer j) via the shared buffer. */
+function medianOfTracer(agents, j) {
+    const n = agents.length;
+    if (n > _geneBuf.length) _geneBuf = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) _geneBuf[i] = agents[i].tr[j];
+    return medianInPlace(_geneBuf, n);
+}
+
+/** `out` (optional, instrumentation only): receives out.voters = the electorate used. */
+function genePolicy(agents, prevPolicy, out) {
     if (agents.length === 0) return { tau: 0, theta: 0, phi: 0, kappa: 0, lambda: 0, psi: 0, term: 0 };
 
     const mode = PARAMETERS.franchiseMode;
@@ -121,6 +130,7 @@ function genePolicy(agents, prevPolicy) {
         const franchise = mode === 'A' ? medianOf(agents, 'psi') : (prevPolicy ? prevPolicy.psi : neutral);
         voters = wealthGate(agents, franchise, true);
     }
+    if (out) out.voters = voters;
 
     return {
         tau: medianOf(voters, 'tau'),
@@ -154,6 +164,13 @@ function applyGenomePolicy(agents, policy) {
 
     const { tau, theta, phi, kappa, lambda } = policy || genePolicy(agents);
 
+    // S4 per-agent transfer flags (PARAMETERS.recordSyndrome), overwritten every tick so a
+    // sampled agent shows THIS tick's transfers: _due asked, _out 0 not asked / 1 paid /
+    // 2 withheld unpunished / 3 withheld and sanctioned (due destroyed), received _rEq (equal
+    // share), _rNeed (water-fill by need), _rHub (hub's κ cut). Same RNG draws on or off.
+    const rec = PARAMETERS.recordSyndrome;
+    if (rec) for (const a of agents) { a._due = 0; a._out = 0; a._rEq = 0; a._rNeed = 0; a._rHub = 0; }
+
     // Collect a flat tau of WHOLE wealth from the theta "who pays" tax base. One-sided
     // theta: 0 -> everyone, 1 -> only the very richest. Signed theta: 0.5 -> everyone,
     // >0.5 -> tax the top (progressive), <0.5 -> tax the bottom (regressive). No empty-
@@ -164,8 +181,9 @@ function applyGenomePolicy(agents, policy) {
     for (const a of payers) {
         const due = Math.min(a.stock, stochasticRound(tau * a.stock));
         if (due <= 0) continue;
-        if (rand() < a.coop) { a.stock -= due; pot += due; }
-        else if (rand() < lambda) { a.stock -= due; }
+        if (rand() < a.coop) { a.stock -= due; pot += due; if (rec) { a._due = due; a._out = 1; } }
+        else if (rand() < lambda) { a.stock -= due; if (rec) { a._due = due; a._out = 3; } }
+        else if (rec) { a._due = due; a._out = 2; }
     }
     if (pot <= 0) return;
 
@@ -175,6 +193,7 @@ function applyGenomePolicy(agents, policy) {
         const keep = Math.min(pot, stochasticRound(kappa * pot));
         hub.stock += keep;
         pot -= keep;
+        if (rec) hub._rHub = keep;
     }
 
     // Distribute: phi fraction by need (water-fill), the rest equally.
@@ -184,9 +203,43 @@ function applyGenomePolicy(agents, policy) {
         const share = Math.floor(equal / N);
         let rem = equal - share * N;
         agents.forEach(a => a.stock += share);
-        while (rem-- > 0) agents[randomInt(N)].stock += 1;
+        if (!rec) while (rem-- > 0) agents[randomInt(N)].stock += 1;
+        else {
+            for (const a of agents) a._rEq = share;
+            while (rem-- > 0) { const k = randomInt(N); agents[k].stock += 1; agents[k]._rEq += 1; }
+        }
     }
-    if (needs > 0) pourWaterFill(agents, needs);
+    if (needs > 0) {
+        if (rec) for (const a of agents) a._rNeed = a.stock;   // pre-fill stock
+        pourWaterFill(agents, needs);
+        if (rec) for (const a of agents) a._rNeed = a.stock - a._rNeed;
+    }
+}
+
+// ── S4 syndrome instrumentation: per-village flows (PARAMETERS.recordSyndrome) ──────────
+// Flows since the last syndrome record, per village: counts by kind, and the sum of each
+// flow's genes (sums, not means, so they add across villages and windows). A full Price
+// decomposition of Δz̄ per gene needs births, deaths and migration per village (SPECS S4.1).
+const SYND_GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'coop', 'omega'];
+// counts: group births, individual (self-breeding) births, starvation deaths, background
+// deaths, emigrants by vector (starve, misfit, random), immigrants by vector.
+const FLOW_COUNTS = ['bG', 'bI', 'dS', 'dB', 'eS', 'eM', 'eR', 'iS', 'iM', 'iR'];
+// gene sums (SYND_GENES each) of: all births, all deaths, all emigrants, all immigrants.
+const FLOW_SUMS = ['birth', 'death', 'emig', 'immig'];
+const FLOW_IDX = {};
+FLOW_COUNTS.forEach((k, i) => FLOW_IDX[k] = i);
+const FLOW_SUM_IDX = { birth: 0, death: 1, emig: 2, immig: 3 };
+
+/** The village's open flow accumulator (created on first use). */
+function flowOf(v) {
+    return v.flow || (v.flow = { c: new Array(FLOW_COUNTS.length).fill(0), s: new Array(FLOW_SUMS.length * SYND_GENES.length).fill(0) });
+}
+/** Count one agent into flow `count` and its genes into gene-sum block `sum`. */
+function flowAdd(v, count, sum, a) {
+    const f = flowOf(v);
+    f.c[FLOW_IDX[count]]++;
+    const off = FLOW_SUM_IDX[sum] * SYND_GENES.length;
+    for (let i = 0; i < SYND_GENES.length; i++) f.s[off + i] += a[SYND_GENES[i]];
 }
 
 /** Distribute `units` integer units into the lowest stocks first (level the floor). */
@@ -290,9 +343,15 @@ class Village {
         // continuous Model V. Mode-B franchise gates on the sitting constitution's psi, so
         // entrenchment now spans the whole term, not just tick-to-tick.
         if (this.constitution == null || worldTick == null || (worldTick - this.electedAt) >= this.term) {
-            this.constitution = genePolicy(this.agents, this.constitution);
+            const out = PARAMETERS.recordSyndrome ? {} : undefined;
+            this.constitution = genePolicy(this.agents, this.constitution, out);
             this.electedAt = worldTick == null ? 0 : worldTick;
             this.term = electedTerm(this.constitution);
+            // S4: stamp who was in this election's electorate (read by the population samples).
+            if (out) {
+                for (const a of this.agents) { a._eV = this; a._eT = this.electedAt; a._eVoted = false; }
+                for (const a of out.voters) a._eVoted = true;
+            }
         }
         this.policy = this.constitution;   // enacted policy this tick = the (frozen) constitution
         applyGenomePolicy(this.agents, this.policy);
@@ -318,7 +377,9 @@ class Village {
             // Soft cap: breed with prob birthProb(pop); on failure keep the stock (bank it).
             if (rand() >= birthProb(this.agents.length)) continue;
             a.stock -= th;
-            this.agents.push(a.spawnChild());
+            const child = a.spawnChild();
+            this.agents.push(child);
+            if (PARAMETERS.recordSyndrome) flowAdd(this, 'bI', 'birth', child);
         }
     }
 
@@ -326,8 +387,20 @@ class Village {
     applyDeaths() {
         const sd = PARAMETERS.starveDeathChance;
         const bd = PARAMETERS.deathChance;
-        this.agents = this.agents.filter(a =>
-            !((a.starved && rand() < sd) || rand() < bd));
+        if (!PARAMETERS.recordSyndrome) {
+            this.agents = this.agents.filter(a =>
+                !((a.starved && rand() < sd) || rand() < bd));
+            return;
+        }
+        // Same draws in the same order as the filter above (short-circuit included), but each
+        // death is classified (starvation vs background) and counted into the village's flows.
+        const kept = [];
+        for (const a of this.agents) {
+            const starve = a.starved && rand() < sd;
+            if (starve || rand() < bd) flowAdd(this, starve ? 'dS' : 'dB', 'death', a);
+            else kept.push(a);
+        }
+        this.agents = kept;
     }
 }
 

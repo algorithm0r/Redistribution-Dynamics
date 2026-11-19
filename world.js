@@ -31,6 +31,11 @@ class World {
         this.rows = PARAMETERS.gridRows;
         this.cols = PARAMETERS.gridCols;
         this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(null));
+        // S4 (recordSyndrome): every village gets a unique id `vid` (a cell can be emptied and
+        // re-founded), and villages that end between syndrome records are kept here with their
+        // final flows until the next record.
+        this.nextVid = 0;
+        this.ended = [];
 
         // Seed founding villages at random cells.
         let seeded = 0;
@@ -54,7 +59,8 @@ class World {
                 }
                 agents.push(a);
             }
-            this.grid[r][c] = new Village(r, c, agents);
+            if (PARAMETERS.recordSyndrome) agents.forEach(a => a.lin = seeded);   // lineage = founding village index
+            this.grid[r][c] = this.makeVillage(r, c, agents);
             seeded++;
         }
 
@@ -65,6 +71,22 @@ class World {
         this.dataManager = new WorldDataManager(this);
         this.observer = (typeof gameEngine !== "undefined" && gameEngine && gameEngine.ctx)
             ? new WorldObserver(this, this.dataManager) : null;
+    }
+
+    /** Construct a Village (and, under recordSyndrome, give it a unique id). */
+    makeVillage(r, c, agents) {
+        const v = new Village(r, c, agents);
+        if (PARAMETERS.recordSyndrome) v.vid = this.nextVid++;
+        return v;
+    }
+
+    /** S4: keep a village that is ending (its cell nulled) with its open flows. */
+    endVillage(v, cause) {
+        if (!PARAMETERS.recordSyndrome) return;
+        const z = new Array(SYND_GENES.length).fill(0);
+        for (const a of v.agents) for (let i = 0; i < SYND_GENES.length; i++) z[i] += a[SYND_GENES[i]];
+        const f = flowOf(v);
+        this.ended.push({ id: v.vid, r: v.row, c: v.col, cause, n: v.pop, z, fc: f.c, fs: f.s });
     }
 
     villages() {
@@ -102,7 +124,7 @@ class World {
     cullEmpty() {
         for (let r = 0; r < this.rows; r++)
             for (let c = 0; c < this.cols; c++)
-                if (this.grid[r][c] && this.grid[r][c].pop === 0) this.grid[r][c] = null;
+                if (this.grid[r][c] && this.grid[r][c].pop === 0) { this.endVillage(this.grid[r][c], 'empty'); this.grid[r][c] = null; }
     }
 
     /** Per-tick wipeout chance, scaled by crowding: `catastropheChance` times the
@@ -119,7 +141,7 @@ class World {
                 const crowd = this.neighbors(r, c).reduce((n, [nr, nc]) => n + (this.grid[nr][nc] ? 1 : 0), 0);
                 if (crowd > 0 && rand() < p * crowd) victims.push([r, c]);
             }
-        for (const [r, c] of victims) this.grid[r][c] = null;
+        for (const [r, c] of victims) { this.endVillage(this.grid[r][c], 'catastrophe'); this.grid[r][c] = null; }
     }
 
     /** Growth points needed for the next birth/fission, affine in village size:
@@ -143,7 +165,9 @@ class World {
             if (rand() >= birthProb(v.pop)) break;   // soft cap: no birth, keep the points
             v.growthPoints -= th;
             const parent = pickByStock(fed);   // ∝ stock^birthWealthBias (β=0 → uniform)
-            v.agents.push(reproduce(parent, fed));   // sexual (recombine w/ a fed mate) w.p. pSexual, else clone
+            const child = reproduce(parent, fed);   // sexual (recombine w/ a fed mate) w.p. pSexual, else clone
+            v.agents.push(child);
+            if (PARAMETERS.recordSyndrome) flowAdd(v, 'bG', 'birth', child);
         }
     }
 
@@ -168,7 +192,7 @@ class World {
             movers.push(v.agents.splice(randomInt(v.agents.length), 1)[0]);
         }
         let target = this.grid[r][c];
-        if (!target) { target = new Village(r, c, []); this.grid[r][c] = target; }
+        if (!target) { target = this.makeVillage(r, c, []); this.grid[r][c] = target; }
         movers.forEach(a => target.agents.push(a));
     }
 
@@ -184,24 +208,27 @@ class World {
 
         // Collect moves from the pre-migration state, then apply atomically.
         const moves = [];
+        const rec = PARAMETERS.recordSyndrome;
         for (const v of villages) {
             for (const a of v.agents) {
                 const dest = this.migrationDest(v, a);
-                if (dest) moves.push([a, v, dest]);
+                if (dest) moves.push(rec ? [a, v, dest, this._lastVector] : [a, v, dest]);
             }
         }
-        for (const [a, v, [r, c]] of moves) {
+        for (const [a, v, [r, c], vec] of moves) {
             const idx = v.agents.indexOf(a);
             if (idx === -1) continue;
             v.agents.splice(idx, 1);
             let target = this.grid[r][c];
-            if (!target) { target = new Village(r, c, []); this.grid[r][c] = target; }
+            if (!target) { target = this.makeVillage(r, c, []); this.grid[r][c] = target; }
             target.agents.push(a);
+            if (rec) { flowAdd(v, EMIG_FLOW[vec], 'emig', a); flowAdd(target, IMMIG_FLOW[vec], 'immig', a); }
         }
     }
 
     /** Count one migration of the given vector (per-tick + cumulative). */
     tallyMigration(vector) {
+        this._lastVector = vector;   // read by migrate() for the S4 per-village flows
         this.migCount[vector]++; this.migCount.total++;
         this.migCum[vector]++;   this.migCum.total++;
     }
@@ -258,6 +285,56 @@ class World {
     }
 }
 
+
+/** S4 flow names for each migration vector. */
+const EMIG_FLOW = { starve: 'eS', misfit: 'eM', random: 'eR' };
+const IMMIG_FLOW = { starve: 'iS', misfit: 'iM', random: 'iR' };
+
+/** Fields of each agent row in the S4 periodic population samples (data.syndrome.samples). */
+const SAMPLE_FIELDS = ['r', 'c', 'vid', 'lin', 'stock', 'tau', 'theta', 'phi', 'kappa', 'lambda', 'psi',
+    'coop', 'omega', 'term', 'voted', 'elig', 'due', 'out', 'rEq', 'rNeed', 'rHub'];
+
+/**
+ * S4 per-village syndrome record (appended to that sample's villageRecords entry as `sy`),
+ * closing the village's flow window:
+ *   id   unique village id (a cell can be emptied and re-founded)
+ *   lin  [mode lineage, Simpson diversity 1 - sum p^2, number of lineages] of the members
+ *   w    member medians of the inert tracers [omega, omega1..omegak]
+ *   z    member gene sums, SYND_GENES order (mean = z / n)
+ *   fc   flow counts since the last syndrome record, FLOW_COUNTS order
+ *   fs   flow gene sums, FLOW_SUMS blocks x SYND_GENES
+ * Free function: no `this`.
+ */
+function syndromeVillage(v) {
+    const counts = new Map();
+    for (const a of v.agents) counts.set(a.lin, (counts.get(a.lin) || 0) + 1);
+    let mode = null, best = -1, simpson = 1;
+    for (const [lin, k] of counts) {
+        if (k > best || (k === best && lin < mode)) { best = k; mode = lin; }
+        simpson -= (k / v.pop) * (k / v.pop);
+    }
+    const w = [medianOf(v.agents, 'omega')];
+    const k = PARAMETERS.extraTracers || 0;
+    for (let j = 0; j < k; j++) w.push(medianOfTracer(v.agents, j));
+    const z = new Array(SYND_GENES.length).fill(0);
+    for (const a of v.agents) for (let i = 0; i < SYND_GENES.length; i++) z[i] += a[SYND_GENES[i]];
+    const f = flowOf(v);
+    v.flow = null;   // open a new window
+    return { id: v.vid, lin: [mode === undefined ? null : mode, v.pop ? simpson : 0, counts.size], w, z, fc: f.c, fs: f.s };
+}
+
+/** One agent's row for a population sample (SAMPLE_FIELDS order, then its tracers).
+ *  voted: 1/0 = in / excluded from the electorate of the SITTING constitution's election,
+ *  -1 = not a member then (born or arrived since; common under long terms).
+ *  elig: 1/0 = in / out of the electorate a vote held NOW would use (`electorate`, a Set). */
+function sampleRow(a, v, electorate) {
+    const voted = (a._eV === v && a._eT === v.electedAt) ? (a._eVoted ? 1 : 0) : -1;
+    const row = [v.row, v.col, v.vid, a.lin === undefined ? null : a.lin, a.stock,
+        a.tau, a.theta, a.phi, a.kappa, a.lambda, a.psi, a.coop, a.omega, a.term,
+        voted, electorate.has(a) ? 1 : 0, a._due || 0, a._out || 0, a._rEq || 0, a._rNeed || 0, a._rHub || 0];
+    if (a.tr) for (const t of a.tr) row.push(t);
+    return row;
+}
 
 /** The genes whose enacted-vs-membership gap S1 measures (the six voted policy genes + term). */
 const POLICY_GAP_GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'term'];
@@ -369,6 +446,24 @@ class WorldDataManager {
         this.coopCorr = {};
         this.policyGenes.forEach(g => this.coopCorr[g] = []);
 
+        // S4 syndrome (PARAMETERS.recordSyndrome): flows/lineage/tracers per village every
+        // `syndromeEvery` samples (as villageRecords[s][i].sy), villages that ended in between,
+        // and population samples every `syndromeSampleTicks` ticks.
+        const kTr = PARAMETERS.extraTracers || 0;
+        this.syndrome = PARAMETERS.recordSyndrome ? {
+            every: PARAMETERS.syndromeEvery, sampleTicks: PARAMETERS.syndromeSampleTicks,
+            genes: SYND_GENES, flowCounts: FLOW_COUNTS, flowSums: FLOW_SUMS,
+            tracers: ['omega'].concat(Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1))),
+            sampleFields: SAMPLE_FIELDS.concat(Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1))),
+            recordTicks: [],   // the tick of each syndrome record (villageRecords[s] with .sy)
+            ended: [],         // per syndrome record: villages that ended since the previous one
+            samples: [],       // [{ tick, rows: [[SAMPLE_FIELDS...]] }]
+        } : null;
+        // Extra inert tracers (PARAMETERS.extraTracers > 0): per sample, per tracer, the agent
+        // mean, the mean over villages of the village median, and the SD of village medians.
+        this.tracers = kTr > 0 ? { names: Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1)),
+                                   mean: [], villageMean: [], villageSD: [] } : null;
+
         // S1 policy gap (PARAMETERS.recordPolicyGap): per-sample summaries, not per-village rows.
         this.policyGap = PARAMETERS.recordPolicyGap ? {
             genes: POLICY_GAP_GENES, absTotal: [], absLag: [], absFranchise: [], rankTotal: [],
@@ -446,15 +541,52 @@ class WorldDataManager {
         });
 
         // Per-village summary: position, size, mean coop, enacted policy, growth points.
+        // Under recordSyndrome, every `syndromeEvery`-th sample also carries `sy` (syndromeVillage).
+        const sIdx = this.popSeries.length - 1, tickNow = this.world.tick - 1;
+        const synd = this.syndrome && sIdx % Math.max(1, PARAMETERS.syndromeEvery) === 0;
         this.villageRecords.push(villages.map(v => {
             const pol = v.policy || genePolicy(v.agents);
-            return {
+            const rec = {
                 r: v.row, c: v.col, n: v.pop,
                 coop: v.pop ? v.agents.reduce((s, a) => s + a.coop, 0) / v.pop : 0,
                 g: [pol.tau, pol.theta, pol.phi, pol.kappa, pol.lambda, pol.psi],
                 gp: v.growthPoints,
             };
+            if (synd) rec.sy = syndromeVillage(v);
+            return rec;
         }));
+        if (synd) {
+            this.syndrome.recordTicks.push(tickNow);
+            this.syndrome.ended.push(this.world.ended.splice(0));
+        }
+        if (this.syndrome && tickNow % Math.max(1, PARAMETERS.syndromeSampleTicks) === 0) {
+            // A uniform sample of agents (diag RNG stream: does not perturb the run).
+            const tagged = villages.flatMap(v => v.agents.map(a => [a, v]));
+            const m = Math.min(PARAMETERS.syndromeSampleSize, tagged.length);
+            for (let i = 0; i < m; i++) {
+                const j = i + Math.floor(diagRand() * (tagged.length - i));
+                const t = tagged[i]; tagged[i] = tagged[j]; tagged[j] = t;
+            }
+            const electorates = new Map();   // per sampled village: the electorate a vote now would use
+            const electorateOf = v => {
+                if (!electorates.has(v)) { const out = {}; genePolicy(v.agents, v.policy, out); electorates.set(v, new Set(out.voters)); }
+                return electorates.get(v);
+            };
+            this.syndrome.samples.push({ tick: tickNow, rows: tagged.slice(0, m).map(([a, v]) => sampleRow(a, v, electorateOf(v))) });
+        }
+        if (this.tracers) {
+            const k = this.tracers.names.length, mean = new Array(k).fill(0), vm = new Array(k).fill(0), vsd = new Array(k).fill(0);
+            for (const a of agents) for (let j = 0; j < k; j++) mean[j] += a.tr[j];
+            const occupied = villages.filter(v => v.pop > 0);
+            for (let j = 0; j < k; j++) {
+                const meds = occupied.map(v => medianOfTracer(v.agents, j));
+                const mu = meds.length ? meds.reduce((s, x) => s + x, 0) / meds.length : 0;
+                vm[j] = mu;
+                vsd[j] = meds.length ? Math.sqrt(meds.reduce((s, x) => s + (x - mu) * (x - mu), 0) / meds.length) : 0;
+                mean[j] = n ? mean[j] / n : 0;
+            }
+            this.tracers.mean.push(mean); this.tracers.villageMean.push(vm); this.tracers.villageSD.push(vsd);
+        }
 
         // Split living agents by coop rank into thirds, then each gene's mean within
         // each third. Empty third -> NaN (the overlay line skips it).
@@ -527,6 +659,8 @@ class WorldDataManager {
         };
         // Diagnostics behind switches add their keys only when on, so a default packet is unchanged.
         if (this.policyGap) packet.data.policyGap = this.policyGap;
+        if (this.syndrome) packet.data.syndrome = this.syndrome;
+        if (this.tracers) packet.data.tracers = this.tracers;
         if (typeof socket !== "undefined" && socket) {
             socket.emit("insert", packet);
             console.log("Data sent:", PARAMETERS.runName);

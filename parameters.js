@@ -133,6 +133,20 @@ const PARAMETERS = {
     // village's enacted policy and its full-membership median, split into lag (term) and
     // franchise parts, plus the rank gap, term T and election age. Adds data.policyGap.
     recordPolicyGap: false,
+    // S4 syndrome instrumentation (analysis/SPECS.md): per-village flows (births, deaths,
+    // migrants by vector, with gene sums), lineage ids, tracer medians and member gene sums
+    // (villageRecords[s][i].sy every `syndromeEvery` samples), villages that ended between
+    // records, and periodic population samples with per-tick transfer/vote flags. Adds
+    // data.syndrome. Recording draws only from the diag/tracer RNG streams: the run is unchanged.
+    recordSyndrome: false,
+    syndromeEvery: 5,           // flows + village extras every Nth sample (5 × reportingPeriod 100 = 500 ticks)
+    syndromeSampleTicks: 5000,  // a population sample every N ticks (tick 0 included)
+    syndromeSampleSize: 256,    // agents per population sample
+
+    // Extra inert tracer genes ω1..ωk (S4.2/S5): like ω, read by no dynamics; their randomness
+    // comes from the tracer RNG stream, so k > 0 leaves every real gene's trajectory unchanged.
+    // Adds data.tracers (agent mean, mean and SD of village medians, per sample). 0 = none.
+    extraTracers: 0,
 
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)

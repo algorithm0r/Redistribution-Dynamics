@@ -40,6 +40,14 @@ class Agent {
         // PARAMETERS.constitutionTerm and term drifts inert (recorded like omega). Sibling of
         // psi: psi is *who* decides, term is *how often* they decide. See DEVPLAN 'Constitutions'.
         this.term = PARAMETERS.term;
+        // Extra inert tracers ω1..ωk (PARAMETERS.extraTracers; S4.2/S5): exactly like ω — read
+        // by no dynamics — but all their randomness (initial values, mutation, which parent in
+        // a sexual birth) comes from the TRACER RNG stream, so turning them on leaves every real
+        // gene's trajectory identical. Absent (no property) when k = 0.
+        if (PARAMETERS.extraTracers > 0) this.tr = new Array(PARAMETERS.extraTracers).fill(PARAMETERS.omega);
+        // (Under recordSyndrome, founders also get a lineage id `lin` = their founding village's
+        // index, inherited clonally — or from a random parent in sexual births, drawn from the
+        // tracer stream. Set by World; absent otherwise.)
 
         // When coupled, the two traits are one gene held equal (so the boon and
         // bane can't diverge); seed both from their average. Net drift is then 0.
@@ -59,6 +67,7 @@ class Agent {
         this.coop = rand();
         this.omega = rand();
         this.term = rand();
+        if (this.tr) for (let i = 0; i < this.tr.length; i++) this.tr[i] = tracerRand();
     }
 
     /** Production: add 1 to stock unless gathering fails this tick (the bane). */
@@ -102,6 +111,7 @@ class Agent {
         child.coop   = clamp01(this.coop + m());
         child.omega  = clamp01(this.omega + m());
         child.term   = clamp01(this.term + m());
+        inheritInert(child, this, this);
         return child;
     }
 
@@ -132,10 +142,29 @@ class Agent {
         child.coop   = clamp01(from('coop')   + m());
         child.omega  = clamp01(from('omega')  + m());
         child.term   = clamp01(from('term')   + m());
+        inheritInert(child, this, mate);
         return child;
     }
 
     draw(ctx) {}
+}
+
+/**
+ * Inheritance of the instrumentation-only genes: the extra inert tracers ω1..ωk (`tr`) and the
+ * lineage id (`lin`). Each tracer comes from a random one of the two parents (p1 === p2 for an
+ * asexual birth) and mutates like a real gene; the lineage id comes from a random parent. All
+ * draws use the TRACER stream (util.js), never the sim stream, so these genes cannot perturb
+ * the model's trajectory. No-op when neither is present. Free function: no `this`.
+ */
+function inheritInert(child, p1, p2) {
+    if (child.tr && p1.tr) {
+        const sd = PARAMETERS.mutationStdev;
+        for (let i = 0; i < child.tr.length; i++) {
+            const src = (p1 === p2 || tracerRand() < 0.5) ? p1 : p2;
+            child.tr[i] = clamp01(src.tr[i] + generateNormalSample(0, sd, tracerRand));
+        }
+    }
+    if (p1.lin !== undefined) child.lin = (p1 === p2 || tracerRand() < 0.5) ? p1.lin : p2.lin;
 }
 
 /**
