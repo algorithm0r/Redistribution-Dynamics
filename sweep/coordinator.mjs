@@ -96,7 +96,7 @@ async function syncFromMongo(tag = 'sync') {
     try {
         const s = await mongoSocket();
         if (!s) { console.log(`[${tag}] Mongo not connected — skipping`); return; }
-        const byRun = {};
+        const byRun = {}, seenRun = new Set();   // seenRun: a run name counts once even if Mongo holds two docs for it
         for (let page = 0, limit = 500; ; page++) {
             // $slice:-1 → only the final coop per doc (small transfer); 90s ack — the Server reads
             // full multi-MB docs so a page can take ~60-80s, well over the 30s default (which was
@@ -105,6 +105,7 @@ async function syncFromMongo(tag = 'sync') {
             const docs = (ack && ack.results) || [];
             for (const d of docs) {
                 if (d.complete === false) continue;   // a crashed/refused run's placeholder: not a sample, seed reusable
+                if (d._run != null) { if (seenRun.has(d._run)) continue; seenRun.add(d._run); }
                 const c = d.geneMeans && d.geneMeans.coop, v = Array.isArray(c) ? lastFinite(c) : c;
                 if (d.run != null && Number.isFinite(v)) {
                     (byRun[d.run] ||= { v: [], seeds: [] }).v.push(v);
@@ -262,13 +263,17 @@ const server = http.createServer(withWhoami(async (req, res) => {
             const startTs = (prev && prev.cell === h.cell) ? prev.startTs : Date.now();   // reset the run timer when the cell changes
             workers.set(h.worker, { host: h.host, cell: h.cell, seed: h.seed, rep: h.rep, tick: h.tick, total: h.total, pop: h.pop, ts: Date.now(), startTs });
             const a = assignments.get(h.worker); if (a) a.ts = Date.now();   // keep the dispatch alive
+            // A running seed is taken even if this coordinator never dispatched it (restart):
+            // without this, nextSeed() could hand the same seed out again.
+            const hc = byId.get(h.cell); if (hc && h.seed != null) hc.seedsSent.add(h.seed);
         }
         return json(res, { ok: true });
     }
     if (req.method === 'POST' && url === '/complete') {
         const { id, coop, worker, seed, ok } = JSON.parse(await readBody(req) || '{}');
         const c = byId.get(id);
-        if (c && ok !== false && Number.isFinite(coop)) {   // ok false = the run failed to save: not a sample
+        const dup = c && seed != null && c.seedsDone.has(seed);   // a seed counts once, however many times it completes
+        if (c && ok !== false && Number.isFinite(coop) && !dup) {   // ok false = the run failed to save: not a sample
             c.samples.push(coop); sessionCompletes++;
             if (seed != null) c.seedsDone.add(seed);
             if (isDone(c)) c.done = true;
