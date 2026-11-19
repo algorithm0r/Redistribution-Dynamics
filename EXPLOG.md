@@ -23,6 +23,80 @@ Raw numbers below come from `../analysis/` (separate repo). Regenerate with
 
 ---
 
+## 2026-11-18 (night) — CONCLUSIONS: drift after the transition (Chris's hypothesis)
+
+Written after the raw block below. Details: `../analysis/FINDINGS.md`, "After the transition".
+
+1. In mirror worlds under franchise A/B, the pot-acting genes τ, θ, φ and κ behave like ω: their
+   variance is at ω's level and they wander at 0.7–0.8× ω's rate. The hypothesis holds there.
+   Under franchise off it holds clearly only for φ.
+2. λ is held low in mirror worlds (0.3–0.5× ω's drift rate, no movement off the boundary). The
+   sanction destroys 1.6–3.2× what the pot collects. The steward's qualification holds: low λ is
+   kept by selection, not drift.
+3. In established worlds θ, φ and κ are held, and λ is held in balance_grid. τ wanders like ω in
+   both sweeps. λ also wanders like ω in established constitution worlds (54 reps, slow cells:
+   flagged, not leaned on).
+4. The syndrome-pole failures are still under directional selection, not post-transition.
+5. The instrument has limits. Variance trends are flat for every gene, ω included, so the test
+   rests on standardised drift and variance level. "Held" and "released but not yet regrown"
+   cannot be told apart for genes near 0.7× ω. The calibration needed is SPECS S4.5.
+
+## 2026-11-18 (night) — DRIFT AFTER THE TRANSITION · RAW · re-analysis, no new runs
+
+**Question.** After the transition, do policy genes drift (Chris: in defector worlds the pot is
+~0, so τ, θ, φ and κ have nothing to act on) or stay under selection? Steward's qualification:
+λ acts on withheld dues and may be selected low.
+
+**Data.** Three more read-only pulls (commands in FINDINGS):
+- series for balance_grid franchise A/B in the five matched families (166 reps)
+- series for 18 constitution_grid cells `{i6_g1, i8_g1, base_g1, base_g2, base_g3, i8_g2}` ×
+  `{fA, fB, foff_T50k}` (970 reps)
+- village records for 90 A/B reps and 152 constitution reps
+
+The earlier matched-family franchise-off pulls are reused.
+
+**Method.** `../analysis/scripts/drift.mjs`.
+- Window: 30k → 50k ticks.
+- Groups:
+  - established: coop > .5, with t* ≤ 25k
+  - mirror: λ < .3 and κ > .6, with coop < .1 for good from ≤ 25k
+  - syndrome-pole failure: λ > .7, κ < .4, coop ≤ .5
+- Measures: standardised drift = |Δmean| ÷ within-population sd at 30k (median over reps);
+  within-population variance ÷ ω's; across-village variance 50k ÷ 30k.
+- Pot proxy from the final sample.
+
+**RAW RESULTS.** Standardised drift (ω's value first), at 30k → 50k:
+
+| group | n reps | ω | τ | θ | φ | κ | λ | ψ | coop |
+|---|---|---|---|---|---|---|---|---|---|
+| established, balance off | 227 | 0.24 | 0.30 | 0.11 | 0.13 | 0.11 | 0.15 | 0.32 | 0.23 |
+| established, constitution | 54 | 0.26 | 0.27 | 0.12 | 0.19 | 0.13 | 0.26 | 0.35 | 0.28 |
+| mirror, balance off | 106 | 0.34 | 0.26 | 0.24 | 0.43 | 0.19 | 0.11 | 0.27 | 0.06 |
+| mirror, balance A/B | 122 | 0.19 | 0.13 | 0.15 | 0.16 | 0.13 | 0.10 | 0.12 | 0.07 |
+| syndrome-pole failure, constitution | 433 | 0.32 | 0.18 | 0.10 | 0.37 | 0.33 | 0.15 | 0.32 | 0.59 |
+| syndrome-pole failure, balance off | 33 | 0.42 | 0.30 | 0.25 | 0.40 | 0.32 | 0.32 | 0.54 | 0.71 |
+
+Variance ÷ ω's at 30k:
+- mirror, A/B: τ 1.21, θ 1.31, φ 1.26, κ 1.18, λ 0.06, ψ 0.29
+- mirror, off: τ 0.42, θ 0.31, φ 0.41, κ 0.24, λ 0.10
+- established, balance off: 0.10–0.25 for τ, θ, φ, κ and λ
+
+Across-village variance, 50k ÷ 30k:
+- mirror, off: φ 1.62, κ 1.25
+- mirror, A/B: 0.93–1.03
+- established: 0.87–1.20
+- syndrome-pole failures: φ 0.41–0.68, κ 0.57–0.60
+
+Pot ≤ τ·coop·stock per agent per tick, and sanction destruction τ·(1−coop)·λ·stock:
+
+| group | pot | destroyed |
+|---|---|---|
+| established | 0.142–0.147 | 0.027–0.032 |
+| mirror | 0.013–0.016 | 0.026–0.042 |
+| syndrome-pole failures | 0.041–0.046 | 0.073–0.084 |
+
+Mean stock: mirror 0.98–1.69; elsewhere 0.24–0.29.
+
 ## 2026-11-18 (late evening) — CORRECTIONS to the syndrome conclusions (after a cold review)
 
 A cold reviewer recomputed the syndrome claims from `analysis/data` with independent code. I
