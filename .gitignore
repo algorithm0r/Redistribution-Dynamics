@@ -25,3 +25,8 @@ sweep/figcache/
 Thumbs.db
 .vscode/
 .idea/
+
+# Experiment JSON reading copies (Mongo is the record; db.export rebuilds them)
+results/
+# cpuslot logs/exit codes of sweep workers
+sweep/logs/

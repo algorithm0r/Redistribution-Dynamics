@@ -48,9 +48,13 @@ const simPop = s => (s.villages ? s.villages().reduce((n, v) => n + v.pop, 0) : 
 /** Run one config to completion; returns the captured { db, collection, data } packet.
  *  Runs in CHUNK-tick slices, calling onProgress(tick, total, pop) and yielding to the
  *  event loop between slices so heartbeat I/O can flush (the old tight loop blocked it). */
-export async function runConfig(config, onProgress) {
+export async function runConfig(config, onProgress, opts = {}) {
+    delete globalThis.PARAMETERS.id;   // a previous run's identity stamp must not leak into this one
     Object.assign(globalThis.PARAMETERS, BASE, config);
     globalThis.PARAMETERS.idCounter = 0;
+    // opts.beforeRun(PARAMETERS): last chance to touch PARAMETERS before the sim is built, e.g.
+    // db.js v2's ex.run(PARAMETERS, {name, seed}), which stamps PARAMETERS.id into the packet.
+    if (opts.beforeRun) opts.beforeRun(globalThis.PARAMETERS);
 
     let packet = null;
     globalThis.socket.emit = (event, p) => { if (event === 'insert') packet = JSON.parse(JSON.stringify(p)); };

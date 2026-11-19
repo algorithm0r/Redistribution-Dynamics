@@ -3,7 +3,25 @@
 // workers fewest-dispatched-first, and grows each cell's rep budget from the live coop
 // CIs until it's sufficient (stats.mjs) or hits maxN.
 //
-//   node coordinator.mjs [grid.json] [PORT]        (defaults grid.json, 8090)
+//   node coordinator.mjs <grid.json> [--scratch]
+//
+// Identity, not port (conventions §4a; ~/.claude/scaffold/ports.mjs): the coordinator's
+// identity is its grid's Mongo collection. It binds a port derived from the project name in
+// the 8200-8699 band (probing past collisions; PORT=<n> pins one), announces the port it got,
+// and answers GET /whoami with {project, identity}. Workers find it by identity and refuse
+// any other, so a port collision can no longer file runs into the wrong collection.
+//
+// Data protocol (conventions §4): the collection must be an expNNN_slug registered with
+// db.js v2 (sweep/experiment.mjs new), and its pre-registration heading `## expNNN` must be in
+// ../EXPLOG.md, or the coordinator refuses to start. --scratch (smoke tests) uses
+// redistribution_dynamics_scratch and skips the EXPLOG check. LEGACY=1 allows resuming an old
+// named collection (balance_grid, constitution_grid).
+//
+// Seeds: each claim carries a seed, the smallest positive integer not yet completed (in
+// Mongo) or dispatched (this session) for that cell, so a cell's runs are <cell>_s1, _s2, ...
+// Seeds are never re-dispatched within a session (a reaped run leaves a gap rather than a
+// name clash). A cell with a `reps` field runs exactly that many reps (fixed design);
+// otherwise the adaptive rule in stats.mjs decides.
 //
 // HTTP (workers talk to this):
 //   GET  /claim              -> { id, config, rep } | { wait: true } | { done: true }
@@ -15,21 +33,42 @@ import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { io } from 'socket.io-client';
 import { evaluate, DEFAULTS } from './stats.mjs';
+import { bind, withWhoami } from './ports.mjs';
 
-const GRID = process.argv[2] || fileURLToPath(new URL('./grid.json', import.meta.url));
-const PORT = parseInt(process.argv[3] || process.env.PORT || '8090');
+const PROJECT = 'Redistribution Dynamics';
+const ARGS = process.argv.slice(2);
+const SCRATCH = ARGS.includes('--scratch');
+const GRID = ARGS.find(a => !a.startsWith('--'));
+if (!GRID) { console.error('usage: node coordinator.mjs <grid.json> [--scratch]'); process.exit(2); }
 const DASH = fileURLToPath(new URL('./dashboard.html', import.meta.url));   // dashboard served from this file (edit live, no restart)
 
 const STALE_MS = parseInt(process.env.STALE_MS || '300000');   // no heartbeat this long -> worker is dead, reclaim its cell. Well above a run (~2.5min) + heartbeat lag under load, so a slow-but-alive worker is never reaped (which would dupe its cell)
 const SYNC_MS  = parseInt(process.env.SYNC_MS  || '180000');   // re-load results from Mongo this often (source of truth)
 const GRACE_MS = parseInt(process.env.GRACE_MS || '15000');    // on startup, wait for in-flight workers' heartbeats to re-register before dispatching (anti-dupe on coordinator-only restart)
 const MONGO_IP = process.env.MONGO_IP || 'https://research.climbinggiants.com:8888';
-const MONGO_DB = process.env.MONGO_DB || 'redistribution_dynamics';
+const MONGO_DB = (process.env.MONGO_DB || 'redistribution_dynamics') + (SCRATCH ? '_scratch' : '');
 
 const grid = JSON.parse(fs.readFileSync(GRID, 'utf8'));
-const cells = grid.map(c => ({ id: c.id, config: c.config, dispatched: 0, samples: [], done: false }));
+const cells = grid.map(c => ({ id: c.id, config: c.config, reps: c.reps || null, dispatched: 0, samples: [], done: false,
+                               seedsDone: new Set(), seedsSent: new Set() }));
 const byId = new Map(cells.map(c => [c.id, c]));
 const COLLECTION = (grid[0] && grid[0].config && grid[0].config.collection) || 'select_draft_grid';
+if (grid.some(c => c.config.collection !== COLLECTION)) { console.error('coordinator: grid mixes collections; refusing'); process.exit(2); }
+
+// The data-protocol gate.
+const LABEL = (/^(exp\d{3,})_/.exec(COLLECTION) || [])[1];
+if (!LABEL && process.env.LEGACY !== '1') {
+    console.error(`coordinator: collection '${COLLECTION}' is not an expNNN_slug. Register one (node experiment.mjs new <slug> "<question>") or set LEGACY=1 to resume an old sweep.`);
+    process.exit(2);
+}
+if (LABEL && !SCRATCH) {
+    const explog = fileURLToPath(new URL('../EXPLOG.md', import.meta.url));
+    const text = fs.existsSync(explog) ? fs.readFileSync(explog, 'utf8') : '';
+    if (!new RegExp('^##\\s+' + LABEL + '\\b', 'm').test(text)) {
+        console.error(`coordinator: no '## ${LABEL}' pre-registration heading in sim/EXPLOG.md. Pre-register first (conventions §4).`);
+        process.exit(2);
+    }
+}
 const workers = new Map();       // wid -> { host, cell, rep, tick, total, pop, ts }  (live progress)
 const assignments = new Map();   // wid -> { cellId, ts }  (open dispatch, for orphan reaping)
 console.log(`coordinator: ${cells.length} cells, minN=${DEFAULTS.minN}, maxN=${DEFAULTS.maxN}, target coop CI ±${DEFAULTS.eLevel} / p ±${DEFAULTS.eP}`);
@@ -62,13 +101,24 @@ async function syncFromMongo(tag = 'sync') {
             // $slice:-1 → only the final coop per doc (small transfer); 90s ack — the Server reads
             // full multi-MB docs so a page can take ~60-80s, well over the 30s default (which was
             // timing out and making resume load 0 reps → a needless full re-run).
-            const ack = await emitAck(s, 'find', { db: MONGO_DB, collection: COLLECTION, query: {}, projection: { run: 1, 'geneMeans.coop': { $slice: -1 } }, limit, page }, 90000);
+            const ack = await emitAck(s, 'find', { db: MONGO_DB, collection: COLLECTION, query: {}, projection: { run: 1, _run: 1, complete: 1, 'geneMeans.coop': { $slice: -1 } }, limit, page }, 90000);
             const docs = (ack && ack.results) || [];
-            for (const d of docs) { const c = d.geneMeans && d.geneMeans.coop, v = Array.isArray(c) ? lastFinite(c) : c; if (d.run != null && Number.isFinite(v)) (byRun[d.run] ||= []).push(v); }
+            for (const d of docs) {
+                if (d.complete === false) continue;   // a crashed/refused run's placeholder: not a sample, seed reusable
+                const c = d.geneMeans && d.geneMeans.coop, v = Array.isArray(c) ? lastFinite(c) : c;
+                if (d.run != null && Number.isFinite(v)) {
+                    (byRun[d.run] ||= { v: [], seeds: [] }).v.push(v);
+                    const m = /_s(\d+)$/.exec(d._run || ''); if (m) byRun[d.run].seeds.push(parseInt(m[1]));
+                }
+            }
             if (docs.length < limit) break;
         }
         let reps = 0, done = 0;
-        for (const c of cells) { c.samples = byRun[c.id] || []; c.done = evaluate(c.samples).enough; reps += c.samples.length; if (c.done) done++; }
+        for (const c of cells) {
+            const got = byRun[c.id] || { v: [], seeds: [] };
+            c.samples = got.v; c.seedsDone = new Set(got.seeds);
+            c.done = isDone(c); reps += c.samples.length; if (c.done) done++;
+        }
         console.log(`[${tag}] loaded ${reps} reps from Mongo (${COLLECTION}) across ${Object.keys(byRun).length} cells; ${done}/${cells.length} already sufficient`);
     } catch (e) { console.log(`[${tag}] Mongo sync failed: ${e.message}`); }
 }
@@ -76,7 +126,10 @@ async function syncFromMongo(tag = 'sync') {
 // A cell needs more while not sufficient and under its (adaptively growing) rep budget.
 // Keyed on COMPLETED reps (samples, from Mongo) — durable across restarts, unlike the
 // per-session dispatch counter.
-const budget = c => Math.min(DEFAULTS.maxN, Math.max(DEFAULTS.minN, evaluate(c.samples).nNeeded));
+const budget = c => c.reps ? c.reps : Math.min(DEFAULTS.maxN, Math.max(DEFAULTS.minN, evaluate(c.samples).nNeeded));
+function isDone(c) { return c.reps ? c.samples.length >= c.reps : evaluate(c.samples).enough; }
+/** Next seed for a cell: smallest positive integer neither completed nor dispatched this session. */
+function nextSeed(c) { let k = 1; while (c.seedsDone.has(k) || c.seedsSent.has(k)) k++; return k; }
 const needsMore = c => !c.done && c.samples.length < budget(c);
 
 // Cells with a rep in flight RIGHT NOW, derived from live heartbeats + open claims. This
@@ -103,9 +156,20 @@ function nextCell() {
     if (best) return best;
     for (const c of cells) {   // end-game: everything needy is in flight — allow a parallel rep
         if (!needsMore(c)) continue;
+        // A fixed-rep cell never gets more reps in flight than it still needs (an adaptive cell
+        // may: its budget can grow, and a surplus rep is still a sample).
+        if (c.reps && c.samples.length + inFlightCount(c.id) >= c.reps) continue;
         if (!best || c.samples.length < best.samples.length) best = c;
     }
     return best;
+}
+
+/** Distinct live workers running (or just claimed) a cell. */
+function inFlightCount(cellId) {
+    const now = Date.now(), ws = new Set();
+    for (const [wid, w] of workers) if (w.cell === cellId && now - w.ts < STALE_MS) ws.add(wid);
+    for (const [wid, a] of assignments) if (a.cellId === cellId) ws.add(wid);
+    return ws.size;
 }
 
 function readBody(req) {
@@ -172,7 +236,7 @@ await syncFromMongo('resume');   // seed from Mongo before accepting claims (res
 const startTs = Date.now();
 
 let started = 0, sessionCompletes = 0;   // completions since this coordinator started (for throughput)
-http.createServer(async (req, res) => {
+const server = http.createServer(withWhoami(async (req, res) => {
     const url = req.url.split('?')[0];
     if (req.method === 'GET' && url === '/') {   // live status dashboard (served from dashboard.html — editable without restart)
         let html; try { html = fs.readFileSync(DASH, 'utf8'); } catch { html = PAGE; }
@@ -184,8 +248,9 @@ http.createServer(async (req, res) => {
         const c = nextCell();
         if (c) {
             c.dispatched++; started++;
-            if (w) assignments.set(w, { cellId: c.id, ts: Date.now() });   // just-claimed -> busy until first heartbeat
-            return json(res, { id: c.id, config: c.config, rep: c.samples.length + 1 });
+            const seed = nextSeed(c); c.seedsSent.add(seed);
+            if (w) assignments.set(w, { cellId: c.id, seed, ts: Date.now() });   // just-claimed -> busy until first heartbeat
+            return json(res, { id: c.id, config: c.config, rep: c.samples.length + 1, seed });
         }
         // nothing claimable now: done if no cell needs more, else reps are still in flight
         return json(res, cells.some(needsMore) ? { wait: true } : { done: true });
@@ -195,17 +260,18 @@ http.createServer(async (req, res) => {
         if (h.worker != null) {
             const prev = workers.get(h.worker);
             const startTs = (prev && prev.cell === h.cell) ? prev.startTs : Date.now();   // reset the run timer when the cell changes
-            workers.set(h.worker, { host: h.host, cell: h.cell, rep: h.rep, tick: h.tick, total: h.total, pop: h.pop, ts: Date.now(), startTs });
+            workers.set(h.worker, { host: h.host, cell: h.cell, seed: h.seed, rep: h.rep, tick: h.tick, total: h.total, pop: h.pop, ts: Date.now(), startTs });
             const a = assignments.get(h.worker); if (a) a.ts = Date.now();   // keep the dispatch alive
         }
         return json(res, { ok: true });
     }
     if (req.method === 'POST' && url === '/complete') {
-        const { id, coop, worker } = JSON.parse(await readBody(req) || '{}');
+        const { id, coop, worker, seed, ok } = JSON.parse(await readBody(req) || '{}');
         const c = byId.get(id);
-        if (c && Number.isFinite(coop)) {
+        if (c && ok !== false && Number.isFinite(coop)) {   // ok false = the run failed to save: not a sample
             c.samples.push(coop); sessionCompletes++;
-            if (evaluate(c.samples).enough) c.done = true;
+            if (seed != null) c.seedsDone.add(seed);
+            if (isDone(c)) c.done = true;
         }
         if (worker != null) { assignments.delete(worker); workers.delete(worker); }
         return json(res, { ok: true });
@@ -222,12 +288,15 @@ http.createServer(async (req, res) => {
         // across not-done cells at current (adaptive) budgets; grows if cells turn bistable.
         const uptimeMs = now - startTs;
         const ratePerMin = uptimeMs > 1000 ? sessionCompletes / (uptimeMs / 60000) : 0;
-        let remainingReps = 0;
-        for (const c of cells) if (!c.done) remainingReps += Math.max(0, budget(c) - c.samples.length);
+        let remainingReps = 0, remainingMax = 0;
+        for (const c of cells) if (!c.done) {
+            remainingReps += Math.max(0, budget(c) - c.samples.length);
+            remainingMax += Math.max(0, (c.reps || DEFAULTS.maxN) - c.samples.length);   // upper bound (launch.mjs sizes its queue by it)
+        }
         const etaMs = ratePerMin > 0 ? (remainingReps / ratePerMin) * 60000 : null;
         return json(res, { cells: cells.length, sufficient, bistable, dispatched: started, completed,
             running: live.length, workers: live, hosts,
-            uptimeMs, sessionCompletes, ratePerMin, remainingReps, etaMs,
+            identity: COLLECTION, db: MONGO_DB, uptimeMs, sessionCompletes, ratePerMin, remainingReps, remainingMax, etaMs,
             detail: cells.map(c => {
                 const S = c.samples, n = S.length;
                 return { id: c.id, n, done: c.done,
@@ -237,7 +306,11 @@ http.createServer(async (req, res) => {
             }) });
     }
     res.writeHead(404); res.end('not found');
-}).listen(PORT, () => console.log(`listening on http://0.0.0.0:${PORT}  (workers: --coord http://<this-host>:${PORT})`));
+}, { project: PROJECT, identity: COLLECTION, role: 'coordinator' }));
+const { port } = await bind(server, { project: PROJECT, identity: COLLECTION, role: 'coordinator', host: '0.0.0.0' });
+console.log(`coordinator for ${COLLECTION} (db ${MONGO_DB}) on port ${port}. Local workers find it by identity:
+  node launch.mjs ${COLLECTION}${SCRATCH ? ' --scratch' : ''}        (cpuslot, one-shot workers)
+Remote workers pin it:  COORD=http://<this-host>:${port} node launch.mjs ${COLLECTION} --direct N${SCRATCH ? ' --scratch' : ''}`);
 
 // Periodic: prune dead workers/claims (they drop out of the busy set, so their cell is
 // re-claimable), progress line, auto-exit.
