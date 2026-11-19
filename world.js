@@ -259,6 +259,70 @@ class World {
 }
 
 
+/** The genes whose enacted-vs-membership gap S1 measures (the six voted policy genes + term). */
+const POLICY_GAP_GENES = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi', 'term'];
+
+/** Population-weighted median of values[i] with weights w[i] (w > 0). */
+function weightedMedian(values, w) {
+    const idx = values.map((_, i) => i).sort((i, j) => values[i] - values[j]);
+    let total = 0;
+    for (const x of w) total += x;
+    let acc = 0;
+    for (const i of idx) { acc += w[i]; if (acc >= total / 2) return values[i]; }
+    return idx.length ? values[idx[idx.length - 1]] : 0;
+}
+
+/**
+ * S1 (analysis/SPECS.md) — one census sample of the gap between each village's ENACTED
+ * policy and what its members want, split into a LAG part (the term froze an old vote) and
+ * a FRANCHISE part (part of the membership doesn't vote). Per village v with members:
+ *   e = v.policy (the sitting constitution)                        — enacted
+ *   n = genePolicy(v.agents, v.policy)                             — a vote held now, current electorate
+ *   f = medianOf(v.agents, g)                                      — full membership (everyone votes)
+ *   total |e−f| = lag |e−n| ⊕ franchise |n−f|;  rank gap q = #{members with gene > e}/pop − 0.5
+ * Returns pop-weighted means over villages of |e−f|, |e−n|, |n−f| and the pop-weighted RMS of
+ * q (one entry per gene in POLICY_GAP_GENES), plus [median, mean] of the term T and of the
+ * election age (ticks since the sitting constitution was elected, as of the last step;
+ * T = 1 gives 0), both pop-weighted. A village founded by migration this tick has not voted
+ * yet: e = n (genePolicy of its members) and age 0. No RNG; uses the shared median buffer.
+ * Free function: no `this`.
+ */
+function policyGapSample(villages, lastTick) {
+    const G = POLICY_GAP_GENES, ng = G.length;
+    const absTotal = new Array(ng).fill(0), absLag = new Array(ng).fill(0);
+    const absFranchise = new Array(ng).fill(0), rank = new Array(ng).fill(0);
+    const terms = [], ages = [], wts = [];
+    let W = 0;
+    for (const v of villages) {
+        const pop = v.agents.length;
+        if (pop === 0) continue;
+        const elected = !!v.policy;
+        const e = v.policy || genePolicy(v.agents);
+        const n = genePolicy(v.agents, v.policy);
+        for (let i = 0; i < ng; i++) {
+            const g = G[i], f = medianOf(v.agents, g);
+            absTotal[i] += pop * Math.abs(e[g] - f);
+            absLag[i] += pop * Math.abs(e[g] - n[g]);
+            absFranchise[i] += pop * Math.abs(n[g] - f);
+            let above = 0;
+            for (const a of v.agents) if (a[g] > e[g]) above++;
+            const q = above / pop - 0.5;
+            rank[i] += pop * q * q;
+        }
+        terms.push(v.term); ages.push(elected ? Math.max(0, lastTick - v.electedAt) : 0); wts.push(pop);
+        W += pop;
+    }
+    const mean = (xs) => { let s = 0; for (let i = 0; i < xs.length; i++) s += xs[i] * wts[i]; return W ? s / W : 0; };
+    return {
+        absTotal: absTotal.map(x => W ? x / W : 0),
+        absLag: absLag.map(x => W ? x / W : 0),
+        absFranchise: absFranchise.map(x => W ? x / W : 0),
+        rankTotal: rank.map(x => W ? Math.sqrt(x / W) : 0),
+        termTicks: [weightedMedian(terms, wts), mean(terms)],
+        electionAge: [weightedMedian(ages, wts), mean(ages)],
+    };
+}
+
 /** Tracks grid-level time series and ships them to the database at the epoch. */
 class WorldDataManager {
     constructor(world) {
@@ -304,6 +368,12 @@ class WorldDataManager {
         this.policyGenes = ['tau', 'theta', 'phi', 'kappa', 'lambda', 'psi'];
         this.coopCorr = {};
         this.policyGenes.forEach(g => this.coopCorr[g] = []);
+
+        // S1 policy gap (PARAMETERS.recordPolicyGap): per-sample summaries, not per-village rows.
+        this.policyGap = PARAMETERS.recordPolicyGap ? {
+            genes: POLICY_GAP_GENES, absTotal: [], absLag: [], absFranchise: [], rankTotal: [],
+            termTicks: [], electionAge: [],
+        } : null;
     }
 
     record() {
@@ -402,6 +472,11 @@ class WorldDataManager {
                 gh[k].push(counts);
             }
         });
+
+        if (this.policyGap) {
+            const pg = policyGapSample(villages, this.world.tick - 1), out = this.policyGap;
+            for (const k of ['absTotal', 'absLag', 'absFranchise', 'rankTotal', 'termTicks', 'electionAge']) out[k].push(pg[k]);
+        }
     }
 
     update() {
@@ -450,6 +525,8 @@ class WorldDataManager {
                 populationSample: this.endpointSample(256),
             },
         };
+        // Diagnostics behind switches add their keys only when on, so a default packet is unchanged.
+        if (this.policyGap) packet.data.policyGap = this.policyGap;
         if (typeof socket !== "undefined" && socket) {
             socket.emit("insert", packet);
             console.log("Data sent:", PARAMETERS.runName);

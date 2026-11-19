@@ -124,6 +124,12 @@ const PARAMETERS = {
     // (util.js seedRNG), so the run reproduces exactly from its stored PARAMETERS.
     seed: null,
 
+    // ── Diagnostics (each a named switch, so every packet shows which were on) ──
+    // S1 policy gap (analysis/SPECS.md): per sample, the pop-weighted gap between each
+    // village's enacted policy and its full-membership median, split into lag (term) and
+    // franchise parts, plus the rank gap, term T and election age. Adds data.policyGap.
+    recordPolicyGap: false,
+
     // ── Framework / data ───────────────────────────────────────────────────
     updatesPerDraw: 1,        // sim ticks per rendered frame (raise to fast-forward)
     reportingPeriod: 100,     // record statistics every N ticks
