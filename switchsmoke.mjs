@@ -93,32 +93,54 @@ const SMOKES = {
             const cfg = { ...V, epoch: 6000, ...extra };
             const p = await nonPerturbing(cfg, on), d = p.data, sy = d.syndrome;
             const G = sy.genes.length, FC = sy.flowCounts, ix = k => FC.indexOf(k);
+            if (process.env.SMOKE_KNOWNBAD) {   // corrupt one ended row's n and one aggregate gene sum: the conservation checks must FAIL
+                const s = sy.ended.findIndex((e, i) => i > 0 && e.length);
+                sy.ended[s][0][2] += 1;
+                const A = Object.values(sy.endedSum[s])[0]; A.z[0] += 0.01;
+                console.log('  (known-bad mode: corrupted ended row and aggregate in window ' + s + ')');
+            }
             const recs = d.villageRecords.filter(s => s.length && s[0].sy);
             check(recs.length === sy.recordTicks.length && recs.length === 13, `syndrome records every 5th sample: ${recs.length} (ticks ${sy.recordTicks.slice(0, 3).join(',')}..${sy.recordTicks.at(-1)})`);
 
             // Conservation: n and member gene sums z at record t+1 = (record t) + births − deaths − emig + immig.
-            let pairs = 0, nBad = 0, zErr = 0, ends = 0;
+            let pairs = 0, nBad = 0, zErr = 0, ends = 0, wipedTot = 0;
             for (let s = 1; s < recs.length; s++) {
                 const prev = new Map(recs[s - 1].map(r => [r.sy.id, r]));
-                const close = (r, sid, nNow, zNow) => {
-                    const p0 = prev.get(sid), n0 = p0 ? p0.n : 0, z0 = p0 ? p0.sy.z : new Array(G).fill(0);
+                const close = (r, sid, nNow, zNow, start, nOnly) => {
+                    const p0 = prev.get(sid);
+                    const n0 = start ? start.n : p0 ? p0.n : 0, z0 = start ? start.z : p0 ? p0.sy.z : new Array(G).fill(0);
                     const c = r.fc, fsum = r.fs;
                     const n1 = n0 + c[ix('bG')] + c[ix('bI')] - c[ix('dS')] - c[ix('dB')] - c[ix('eS')] - c[ix('eM')] - c[ix('eR')] + c[ix('iS')] + c[ix('iM')] + c[ix('iR')];
                     if (n1 !== nNow) nBad++;
+                    pairs++;
+                    if (nOnly) return;
                     for (let g = 0; g < G; g++) {
                         const z1 = z0[g] + fsum[g] - fsum[G + g] - fsum[2 * G + g] + fsum[3 * G + g];
                         zErr = Math.max(zErr, Math.abs(z1 - zNow[g]));
                     }
-                    pairs++;
                 };
                 for (const r of recs[s]) close(r.sy, r.sy.id, r.n, r.sy.z);
-                for (const e of sy.ended[s]) { ends++; close(e, e.id, e.n, e.z); }   // ended villages close their window too
+                // Ended villages: n per village exactly (their rows keep the flow counts) ...
+                const E = sy.endedFields, eF = k => E.indexOf(k);
+                for (const row of sy.ended[s]) {
+                    ends++; if (row[eF('cause')] === 1) wipedTot++;
+                    const fc = FC.map(k => row[eF(k)]);
+                    close({ fc, fs: new Array(4 * G).fill(0) }, row[eF('id')], row[eF('n')], null, null, true);
+                }
+                // ... and gene sums per cause, against the summed last records of those villages.
+                for (const [cause, A] of Object.entries(sy.endedSum[s] || {})) {
+                    const code = cause === 'empty' ? 0 : 1, rows = sy.ended[s].filter(r => r[eF('cause')] === code);
+                    const n0 = rows.reduce((a, r) => a + (prev.get(r[eF('id')]) ? prev.get(r[eF('id')]).n : 0), 0), z0 = new Array(G).fill(0);
+                    for (const r of rows) { const p0 = prev.get(r[eF('id')]); if (p0) for (let g = 0; g < G; g++) z0[g] += p0.sy.z[g]; }
+                    if (rows.length !== A.count || rows.reduce((a, r) => a + r[eF('n')], 0) !== A.n) nBad++;
+                    close(A, null, A.n, A.z, { n: n0, z: z0 });
+                }
             }
-            check(nBad === 0, `village size conserved through flows in ${pairs} village-windows (${ends} ended villages; ${nBad} mismatches)`);
-            check(zErr < 1e-6, `member gene sums conserved through flows (max abs error ${zErr.toExponential(2)})`);
+            check(nBad === 0, `village size conserved through flows in ${pairs} windows (${ends} ended villages, ${wipedTot} by catastrophe; ${nBad} mismatches)`);
+            check(zErr < 1e-6, `member gene sums conserved through flows, ended villages per cause (max abs error ${zErr.toExponential(2)})`);
 
             const tot = FC.map((_, i) => recs.reduce((s, rr) => s + rr.reduce((t, r) => t + r.sy.fc[i], 0), 0)
-                                       + sy.ended.reduce((s, ee) => s + ee.reduce((t, e) => t + e.fc[i], 0), 0));
+                                       + sy.ended.reduce((s, ee) => s + ee.reduce((t, row) => t + row[3 + i], 0), 0));
             console.log(`    flow totals ${FC.map((k, i) => k + ' ' + tot[i]).join(' · ')}`);
             const mig = d.migrations, migTot = ['starve', 'misfit', 'random'].map(k => mig[k].reduce((a, b) => a + b, 0));
             check(['S', 'M', 'R'].every(k => tot[ix('e' + k)] === tot[ix('i' + k)]), 'every emigrant is someone\'s immigrant, per vector');
@@ -155,6 +177,22 @@ const SMOKES = {
         check(w.length === 6, `village records carry [ω, ω1..ω5] medians (${w.map(f3).join(' ')})`);
         const q = await quiet({ ...cfg, extraTracers: 5, seed: SEED + 1 });
         check(sha(q.data.tracers.mean) !== sha(t.mean), 'a different seed gives different tracer paths (the check can fail)');
+    },
+
+    async thinning() {
+        console.log('\n== villageRecordEvery / recordVillageRecords ==');
+        const cfg = { ...V, epoch: 3000 };
+        const full = await quiet(cfg);
+        const p = await quiet({ ...cfg, villageRecordEvery: 5 });
+        const vrt = p.data.villageRecordTicks;
+        check(p.data.villageRecords.length === 7 && JSON.stringify(vrt) === JSON.stringify([0, 500, 1000, 1500, 2000, 2500, 3000]), `every 5th sample: ${p.data.villageRecords.length} records at ticks ${vrt.join(',')}`);
+        check(sha(p.data.villageRecords) === sha(full.data.villageRecords.filter((_, i) => i % 5 === 0)), 'thinned records are exactly every 5th full record');
+        const moved = Object.keys(full.data).filter(k => !['parameters', 'villageRecords'].includes(k) && sha(full.data[k]) !== sha(p.data[k]));
+        check(moved.length === 0, `thinning leaves every other key identical${moved.length ? ' — moved: ' + moved.join(',') : ''}`);
+        const off = await quiet({ ...cfg, recordVillageRecords: false });
+        check(off.data.villageRecords.length === 0 && off.data.villageRecordTicks.length === 0, 'recordVillageRecords false: no village records');
+        const sy = await quiet({ ...cfg, recordVillageRecords: false, recordSyndrome: true, syndromeEvery: 10 });
+        check(sy.data.villageRecords.length === 4 && sy.data.villageRecords.every(s => s[0].sy), `off + syndrome every 10th: only the 4 syndrome records kept (ticks ${sy.data.villageRecordTicks.join(',')})`);
     },
 
     async shuffle() {

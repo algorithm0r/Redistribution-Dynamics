@@ -80,13 +80,24 @@ class World {
         return v;
     }
 
-    /** S4: keep a village that is ending (its cell nulled) with its open flows. */
+    /** S4: close the flow window of a village that is ending (its cell nulled). Villages turn
+     *  over fast — a catastrophe wipes ~0.4 villages per tick on a full grid (default
+     *  catastropheChance), and the cell is re-founded by migrants the next tick — so this is
+     *  frequent. Each ended village keeps a compact integer row [id, cause, n at end, ...flow
+     *  counts] (ENDED_FIELDS), so its lifetime counts are complete; the gene sums are kept as
+     *  one aggregate per cause per window (an emptied village's end composition is zero; a
+     *  catastrophe is blind to composition). Accounting stays exact (switchsmoke checks it). */
     endVillage(v, cause) {
         if (!PARAMETERS.recordSyndrome) return;
-        const z = new Array(SYND_GENES.length).fill(0);
-        for (const a of v.agents) for (let i = 0; i < SYND_GENES.length; i++) z[i] += a[SYND_GENES[i]];
         const f = flowOf(v);
-        this.ended.push({ id: v.vid, r: v.row, c: v.col, cause, n: v.pop, z, fc: f.c, fs: f.s });
+        this.ended.push([v.vid, cause === 'empty' ? 0 : 1, v.pop].concat(f.c));
+        const sums = this.endedSum || (this.endedSum = {});
+        const A = sums[cause] || (sums[cause] = { count: 0, n: 0, z: new Array(SYND_GENES.length).fill(0),
+            fc: new Array(FLOW_COUNTS.length).fill(0), fs: new Array(FLOW_SUMS.length * SYND_GENES.length).fill(0) });
+        A.count++; A.n += v.pop;
+        for (const a of v.agents) for (let i = 0; i < SYND_GENES.length; i++) A.z[i] += a[SYND_GENES[i]];
+        for (let i = 0; i < f.c.length; i++) A.fc[i] += f.c[i];
+        for (let i = 0; i < f.s.length; i++) A.fs[i] += f.s[i];
     }
 
     villages() {
@@ -312,6 +323,9 @@ class World {
 }
 
 
+/** Row layout of an ended village in data.syndrome.ended (cause 0 = emptied, 1 = catastrophe). */
+const ENDED_FIELDS = ['id', 'cause', 'n'].concat(FLOW_COUNTS);
+
 /** S4 flow names for each migration vector. */
 const EMIG_FLOW = { starve: 'eS', misfit: 'eM', random: 'eR' };
 const IMMIG_FLOW = { starve: 'iS', misfit: 'iM', random: 'iR' };
@@ -464,6 +478,7 @@ class WorldDataManager {
         // spatial / multilevel (Price-equation) analyses.
         this.geneCov = [];
         this.villageRecords = [];
+        this.villageRecordTicks = null;   // set only when villageRecords are thinned (see record)
 
         // Correlation of coop with each policy gene over time (derived from the
         // covariance) — for the live observer's leading-edge plot. NaN where coop
@@ -482,7 +497,9 @@ class WorldDataManager {
             tracers: ['omega'].concat(Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1))),
             sampleFields: SAMPLE_FIELDS.concat(Array.from({ length: kTr }, (_, j) => 'omega' + (j + 1))),
             recordTicks: [],   // the tick of each syndrome record (villageRecords[s] with .sy)
-            ended: [],         // per syndrome record: villages that ended since the previous one
+            endedFields: ENDED_FIELDS,
+            ended: [],         // per syndrome record: villages that ended since the previous one, one row each (ENDED_FIELDS)
+            endedSum: [],      // per syndrome record: null, or { empty?, catastrophe? } each { count, n, z, fc, fs } summed over those villages
             samples: [],       // [{ tick, rows: [[SAMPLE_FIELDS...]] }]
         } : null;
         // Extra inert tracers (PARAMETERS.extraTracers > 0): per sample, per tracer, the agent
@@ -573,7 +590,15 @@ class WorldDataManager {
         // Under recordSyndrome, every `syndromeEvery`-th sample also carries `sy` (syndromeVillage).
         const sIdx = this.popSeries.length - 1, tickNow = this.world.tick - 1;
         const synd = this.syndrome && sIdx % Math.max(1, PARAMETERS.syndromeEvery) === 0;
-        this.villageRecords.push(villages.map(v => {
+        // villageRecords cadence (packet size): every `villageRecordEvery`-th sample, none if
+        // recordVillageRecords is false — except that a syndrome record always writes one (its
+        // `sy` lives there). Thinned records carry their ticks in villageRecordTicks.
+        const vrEvery = Math.max(1, PARAMETERS.villageRecordEvery);
+        const thinned = !PARAMETERS.recordVillageRecords || vrEvery > 1;
+        const wantVR = synd || (PARAMETERS.recordVillageRecords && sIdx % vrEvery === 0);
+        if (thinned && !this.villageRecordTicks) this.villageRecordTicks = [];
+        if (wantVR && thinned) this.villageRecordTicks.push(tickNow);
+        if (wantVR) this.villageRecords.push(villages.map(v => {
             const pol = v.policy || genePolicy(v.agents);
             const rec = {
                 r: v.row, c: v.col, n: v.pop,
@@ -591,6 +616,8 @@ class WorldDataManager {
         if (synd) {
             this.syndrome.recordTicks.push(tickNow);
             this.syndrome.ended.push(this.world.ended.splice(0));
+            this.syndrome.endedSum.push(this.world.endedSum || null);
+            this.world.endedSum = null;
         }
         if (this.syndrome && tickNow % Math.max(1, PARAMETERS.syndromeSampleTicks) === 0) {
             // A uniform sample of agents (diag RNG stream: does not perturb the run).
@@ -714,6 +741,7 @@ class WorldDataManager {
             },
         };
         // Diagnostics behind switches add their keys only when on, so a default packet is unchanged.
+        if (this.villageRecordTicks) packet.data.villageRecordTicks = this.villageRecordTicks;
         if (this.policyGap) packet.data.policyGap = this.policyGap;
         if (this.syndrome) packet.data.syndrome = this.syndrome;
         if (this.tracers) packet.data.tracers = this.tracers;

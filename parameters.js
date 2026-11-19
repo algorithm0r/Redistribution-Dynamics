@@ -129,6 +129,12 @@ const PARAMETERS = {
     seed: null,
 
     // ── Diagnostics (each a named switch, so every packet shows which were on) ──
+    // Per-village records (villageRecords: position, size, mean coop, enacted policy, growth
+    // points). They are ~60% of a default packet (6 MB of 10 MB BSON at 50k ticks), so they can
+    // be thinned: every `villageRecordEvery`-th sample, or off. A thinned packet carries
+    // data.villageRecordTicks. Syndrome records always write one (their `sy` lives there).
+    recordVillageRecords: true,
+    villageRecordEvery: 1,
     // S1 policy gap (analysis/SPECS.md): per sample, the pop-weighted gap between each
     // village's enacted policy and its full-membership median, split into lag (term) and
     // franchise parts, plus the rank gap, term T and election age. Adds data.policyGap.

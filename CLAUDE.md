@@ -35,10 +35,13 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
 | `main.js` | Browser entry: socket connect, tab/button wiring, run cycling. Loads last. |
 | `runs.js` | Per-run `PARAMETERS` overrides (experiment definitions). |
 | `runner.js` | Headless Node worker-thread batch runner; loads the **same** sim files via `vm`, writes to MongoDB. |
-| `smoketest.js` / `worldsmoke.js` | Headless, no-Mongo sanity runs with printed verification numbers (`worldsmoke` ends in three PASS/FAIL mechanism checks). |
+| `smoketest.js` / `worldsmoke.js` | Headless, no-Mongo sanity runs with printed verification numbers (`worldsmoke` ends in three PASS/FAIL mechanism checks). `SEED=<n>` makes their output reproducible. |
+| `regress.mjs` + `regress.baseline.json` | Fixed-seed output baseline (conventions §5): per-key hashes of 11 scenarios' packets + seeded smoke stdout. `node regress.mjs` must say IDENTICAL after any change that should not move output; `--capture` re-baselines (only for a change that moves output by design, said in DEVLOG). |
+| `switchsmoke.mjs` | One short smoke per diagnostic/control switch (S1–S5): fields populated and sane, and a diagnostic switch leaves every existing key identical. |
+| `db.js` | Vendored scaffold DB client v2 (experiment protocol, conventions §4). Re-vendor from `~/.claude/scaffold/`, never edit here. Not a sim file (not loaded by the browser or `SIM_FILES`). |
 | `fillcompare.js` / `migstats.js` | One-off headless probes (grid fill speed; migration-vector instrumentation). |
 | `dashboard.html` / `dashboard.js` | Run dashboard: aggregates a collection's replicates from Mongo and steps through runs. |
-| `sweep/` | Distributed adaptive sweep (coordinator/workers, :8090) + fig server (:8091). Own README. |
+| `sweep/` | Distributed sweep: coordinator found by identity (`ports.mjs`, `/whoami`), seeded one-shot workers via `cpuslot`, runs saved through `db.js` into `expNNN_slug` collections; `experiment.mjs` (registry), `packetsize.mjs` (BSON-size probe); fig server (:8091). Own README. |
 | `index.html` / `style.css` | Canvas + tabbed control panel. |
 
 ## Never violate
@@ -76,9 +79,13 @@ microframework, no build step. Live: https://algorithm0r.github.io/Redistributio
   `v.policy`) and reuse it for redistribution, drawing, migration, and recording.
   Don't recompute medians per-agent or per-frame.
 
-## Ports — a proposed change, deliberately NOT applied
+## Ports — APPLIED 2026-11-18 (the note below is the history)
 
-**Nothing in this project was changed. This is a note for whoever next builds here.**
+`sweep/coordinator.mjs` now binds through `sweep/ports.mjs` (vendored from the scaffold) with
+`/whoami` = {project: 'Redistribution Dynamics', identity: <collection>}; `worker.mjs` and
+`launch.mjs` find it by identity and refuse any other (`COORD=` pins a remote one, still
+identity-checked). The figserver still defaults to :8091 (it only reads). The original note:
+
 
 The sweep servers here default to ``PORT || 8090` (coordinator) and `8091` (figserver)`, and so do two sibling projects
 (PopGenSim, Hierarchical Trades). Seen live on 2026-09-04: Hierarchical Trades and PopGenSim were both occupying 8090/8190 while this project's sweep code still defaults to 8090.

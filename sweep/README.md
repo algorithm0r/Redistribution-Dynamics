@@ -31,31 +31,42 @@ by indirect `eval` (not a `vm` sandbox, which cost ~7–10× in the hot loop; DE
 Both run 50 000 ticks. Results and their reading are in `../DEVLOG.md` (2026-07-18,
 2026-10-20) and `../DEVPLAN.md`.
 
-## Run
+## Run (expNNN data protocol, from 2026-11-18)
+
+Paper-data runs are numbered experiments (conventions §4): register, pre-register, run.
 
 ```bash
 cd sweep
-node grid.mjs                              # -> grid.json (243 cells, balance_grid)
-node grid-constitution.mjs                 # -> constitution.json (45 cells, constitution_grid)
+node experiment.mjs new <slug> "<one-line question>"   # claims expNNN -> collection expNNN_<slug>
+#   then: '## expNNN — ...' pre-registration in ../EXPLOG.md (the coordinator refuses without it)
+#   and a grid file whose cells' config.collection is expNNN_<slug>
+#   (cells may carry "reps": N for a fixed design; otherwise the adaptive rule in stats.mjs)
 
-# main box (12 workers):
-node coordinator.mjs [grid.json] [PORT]    # default grid.json on :8090; auto-exits when all cells sufficient
-node launch.mjs 12                         # 12 workers -> localhost:8090
+node coordinator.mjs <grid.json>          # binds a derived port, prints it, answers /whoami
+node launch.mjs expNNN_<slug>             # desktop: queues one-shot workers in cpuslot (tag redistribution-dynamics)
+COORD=http://<main-box>:<port> node launch.mjs expNNN_<slug> --direct 5   # mint: 5 looping workers
 
-# on mint (5 workers), pointing at the main box:
-node launch.mjs 5 http://<main-box>:8090
-
-# figures:
-node figserver.mjs [PORT]                  # default :8091; COORD env = coordinator URL
+node figserver.mjs [PORT]                 # figures, default :8091
 ```
 
-**Port warning.** 8090/8091 are also defaults in PopGenSim and Hierarchical Trades, and
-`worker.mjs` enrolls with whatever answers on the coordinator URL without checking which
-collection it reached, so a collision can file runs into the wrong Mongo collection with
-no error. Check the port is free (or pass another) before starting a sweep. The fix is in
-`../DEVPLAN.md` Backlog and `../CLAUDE.md` ("Ports").
+- Each claim carries a **seed**; the run is `<cell>_s<seed>`, stamped with `PARAMETERS.id`
+  (project, exp, run, seed, commit, dirty, host, started) and saved by `db.js` to Mongo (the
+  record) plus `../results/<collection>/<run>.json` (reading copy, gitignored). A saved run
+  re-runs byte-identical from its stored `_parameters` (checked 2026-11-18).
+- Workers find the coordinator **by identity**: one serving another collection is refused, so a
+  port collision can no longer misfile runs (the old Backlog bug).
+- **cpuslot:** one-shot workers release their slot after every run, so other projects keep their
+  turns. Watch http://localhost:8000/cpu/; cancel with `cpuslot cancel --tag redistribution-dynamics`.
+- **Smoke tests:** add `--scratch` to `experiment.mjs`, `coordinator.mjs` and `launch.mjs` (db
+  `redistribution_dynamics_scratch`, JSON under `../results/_scratch/`, no EXPLOG needed);
+  `node experiment.mjs drop-scratch` afterwards.
+- **Old sweeps:** `LEGACY=1 node coordinator.mjs grid.json` resumes `balance_grid` /
+  `constitution_grid` (generators `grid.mjs`, `grid-constitution.mjs`). Their documents predate
+  seeds and `PARAMETERS.id`.
+- **Packet size:** `node packetsize.mjs <name> '<json overrides>'` runs one config at full length
+  and prints its BSON size by key (through cpuslot: it takes minutes).
 
-**Watch it:** **http://localhost:8090/** — live dashboard: a per-worker panel (current cell,
+**Watch it:** the coordinator's URL as printed at startup — live dashboard: a per-worker panel (current cell,
 tick progress bar, pop, host) fed by heartbeats every ~5s, plus the grid with each cell's
 mean coop on a CVD-safe viridis ramp (dark purple 0 → yellow 1); small number = reps so far,
 black box = statistically sufficient, grey = not yet run. Served from `dashboard.html`
@@ -78,7 +89,7 @@ so a restart does not re-run finished cells. Workers heartbeat while running; on
 for `STALE_MS` (default 300s) is reaped and its cell reclaimed. Coordinator *logic*
 changes need a full-fleet restart (a coordinator-only restart can transiently dupe a cell).
 
-**Network:** mint needs to reach `<main-box>:8090` — open that port / check the firewall.
+**Network:** mint needs to reach `<main-box>:<port>` (the port the coordinator printed) — open it / check the firewall.
 Mongo is reached through the shared Server at `research.climbinggiants.com:8888`.
 
 ## Tuning
@@ -94,11 +105,14 @@ array to `evaluate()` to stop on another metric.
 |---|---|
 | `grid.mjs` | generate the 243-cell balance factorial → `grid.json` |
 | `grid-constitution.mjs` | generate the 45-cell constitution grid → `constitution.json` |
-| `coordinator.mjs` | adaptive HTTP dispatcher (`/claim`, `/complete`, `/status`, `/`), :8090, Mongo-resume |
+| `coordinator.mjs` | HTTP dispatcher (`/claim` with seed, `/complete`, `/status`, `/whoami`, `/`), port via `ports.mjs`, EXPLOG gate, Mongo-resume, adaptive or fixed reps |
 | `dashboard.html` | coordinator's live status page (file-served) |
-| `worker.mjs` | claim → run (`headless`) → insert to Mongo → report coop → repeat |
+| `worker.mjs` | find coordinator by identity → claim (cell, seed) → seeded run → `db.js` save → report coop; `--once` for cpuslot |
 | `headless.mjs` | load the RD sim in the main realm, run one config, return the data packet + coop |
-| `launch.mjs` | spawn N workers pointed at a coordinator |
+| `launch.mjs` | queue one-shot workers in cpuslot (default) or spawn `--direct N` looping workers (mint) |
+| `experiment.mjs` | experiment registry: `new` / `list` / `finish` / `export` / `drop-scratch` |
+| `ports.mjs` | vendored scaffold port derivation + `/whoami` discovery (do not edit; re-vendor) |
+| `packetsize.mjs` | probe: one full-length run, BSON size per key + wall time |
 | `stats.mjs` | two-regime adaptive stopping rule (Wilson p + t level) |
 | `figserver.mjs` / `figs.html` | fig server (:8091) and its page: per-cell aggregated figures from Mongo |
 | `figcache/` | fig server's aggregate cache (gitignored) |
