@@ -393,8 +393,9 @@ function weightedMedian(values, w) {
  * S1 (analysis/SPECS.md) — one census sample of the gap between each village's ENACTED
  * policy and what its members want, split into a LAG part (the term froze an old vote) and
  * a FRANCHISE part (part of the membership doesn't vote). Per village v with members:
- *   e = v.policy (the sitting constitution)                        — enacted
- *   n = genePolicy(v.agents, v.policy)                             — a vote held now, current electorate
+ *   e = the village's own sitting constitution (v.policy; under policyShuffle v.ownPolicy,
+ *       since v.policy is then another village's)                 — enacted by its own vote
+ *   n = genePolicy(v.agents, own)                                  — a vote held now, current electorate
  *   f = medianOf(v.agents, g)                                      — full membership (everyone votes)
  *   total |e−f| = lag |e−n| ⊕ franchise |n−f|;  rank gap q = #{members with gene > e}/pop − 0.5
  * Returns pop-weighted means over villages of |e−f|, |e−n|, |n−f| and the pop-weighted RMS of
@@ -413,9 +414,14 @@ function policyGapSample(villages, lastTick) {
     for (const v of villages) {
         const pop = v.agents.length;
         if (pop === 0) continue;
-        const elected = !!v.policy;
-        const e = v.policy || genePolicy(v.agents);
-        const n = genePolicy(v.agents, v.policy);
+        // The village's OWN sitting constitution: under the policy-shuffle shadow v.policy is a
+        // random other village's, but the gap S1 measures is between a village's own vote and
+        // its members (and mode B's franchise gate is its own constitution's psi). Off the
+        // shuffle ownPolicy is unset and this is v.policy, as before.
+        const own = v.ownPolicy || v.policy;
+        const elected = !!own;
+        const e = own || genePolicy(v.agents);
+        const n = genePolicy(v.agents, own);
         for (let i = 0; i < ng; i++) {
             const g = G[i], f = medianOf(v.agents, g);
             absTotal[i] += pop * Math.abs(e[g] - f);
@@ -629,7 +635,8 @@ class WorldDataManager {
             }
             const electorates = new Map();   // per sampled village: the electorate a vote now would use
             const electorateOf = v => {
-                if (!electorates.has(v)) { const out = {}; genePolicy(v.agents, v.policy, out); electorates.set(v, new Set(out.voters)); }
+                // mode B gates on the village's own sitting constitution (not a shuffled one)
+                if (!electorates.has(v)) { const out = {}; genePolicy(v.agents, v.ownPolicy || v.policy, out); electorates.set(v, new Set(out.voters)); }
                 return electorates.get(v);
             };
             this.syndrome.samples.push({ tick: tickNow, rows: tagged.slice(0, m).map(([a, v]) => sampleRow(a, v, electorateOf(v))) });

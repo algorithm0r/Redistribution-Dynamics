@@ -229,6 +229,16 @@ const SMOKES = {
             check(gap.every(x => x > 0.02), `misfit=${misfit}: enacted differs from own (mean |e−own| > 0.02 per gene)`);
             check(found / total > 0.95, `misfit=${misfit}: enacted policies are drawn from other villages' own votes (${f3(found / total)})`);
         }
+        // The S1 gap under the shuffle is the village's OWN vote vs its members, not the shuffled
+        // enacted policy vs its members. Measuring the shuffled one, the gap ≈ the enacted–own
+        // distance (0.087 vs 0.094 before the 2026-11-18 fix); measuring the own vote, it is a
+        // fraction of it (0.027; within-tick drift, larger than unshuffled 0.009 in smaller villages).
+        const sp = (await quiet({ ...cfg, epoch: 3000, policyShuffle: true, recordPolicyGap: true })).data;
+        const lateGap = sp.policyGap.absTotal.slice(10).flatMap(r => r.slice(0, 5));
+        const gapMean = lateGap.reduce((a, b) => a + b, 0) / lateGap.length;
+        const eoRows = sp.villageRecords.slice(10).flat();
+        const eoMean = eoRows.reduce((s, r) => s + r.g.slice(0, 5).reduce((t, x, i) => t + Math.abs(x - r.go[i]), 0) / 5, 0) / eoRows.length;
+        check(gapMean < 0.5 * eoMean, `shuffle + recordPolicyGap measures the own vote: late mean |e−f| ${f3(gapMean)} < half the enacted–own distance ${f3(eoMean)}`);
     },
 
     async linked() {
